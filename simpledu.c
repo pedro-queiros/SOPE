@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <dirent.h>
+#include <limits.h>
 
 char *possibleFlags[13] = {"-a","--all","-b","--bytes","-B","--block-size","-l","--count-links","-L","--dereference","-S","--separate-dirs","--max-depth"};
 
@@ -48,13 +49,16 @@ void checkFlags(int size, char* argv[], struct flags *f){
 }*/
 
 
+
+
 int main(int argc, char* argv[], char* envp[]){
     int src;
-    struct stat stat_buff;
-    char path[256];
+    struct stat stat_buff; //file;
+    char path[PATH_MAX];
     struct flags f = {false,false,false,false,false,false,false};
     DIR *dr;
     struct dirent *dir;
+    //int size;
 
     if(argc > 8 ){
         fprintf(stderr, "Usage: %s -l [path] [-a] [-b] [-B size] [-L] [-S] [--max-depth=N]\n", argv[0]);
@@ -63,7 +67,7 @@ int main(int argc, char* argv[], char* envp[]){
 
     strcpy(path,argv[2]);
 
-    if((src = open("output.txt",O_WRONLY | O_CREAT | O_EXCL, 0600)) == -1){
+    if((src = open("output.txt",O_WRONLY | O_CREAT | O_TRUNC, 0600)) == -1){
         printf("Error Number % d\n", errno);
         perror("Error: ");
         exit(2);
@@ -75,15 +79,20 @@ int main(int argc, char* argv[], char* envp[]){
         perror("lstat ERROR");
         exit(3);
     }
-
     if(S_ISDIR(stat_buff.st_mode)){
         dr = opendir(path);
         if(dr){
             if(f.all){
                 dup2(src,STDOUT_FILENO);
                 while((dir = readdir(dr)) != NULL){
-                    printf("%s\n",dir->d_name);
+                    if(strcmp(dir->d_name,".") == 0|| strcmp(dir->d_name,"..") == 0)
+                        continue;
+                    //stat(dir->d_name,&file);
+                    //size = file.st_size;
+                    printf("%s/%s\n",path,dir->d_name);
                 }
+                //size = stat_buff.st_size;
+                printf("%s",path);
                 closedir(dr);
             }
             if(f.bytes){
