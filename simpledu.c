@@ -95,6 +95,58 @@ int readDir (char* path){
     return size;
 }
 
+int readSize (char* filepath){
+    struct stat file;
+    int size, size2;
+
+    if (stat(filepath, &file) < 0) {
+        printf("Error reading file stat.\n");
+        exit(1);
+    }
+    size2 = size = file.st_size;
+    printf("%d",size);
+    int count = 0, x;
+    do
+    {
+        count++;
+        size /= 10;
+    } while(size != 0);
+    count = 8 - count;
+    for (x = 0; x < count; x++){
+        printf(" ");
+    }
+    printf("%s\n", filepath);
+
+    return size2;
+}
+
+int directoryTotalSize (char* path){
+    DIR* dr;
+    struct dirent *dir;
+    struct stat file;
+    char filepath[256];
+    int size = 0;
+
+    if ((dr = opendir(path)) == NULL){
+        perror(path);
+        exit(1);
+    }
+
+    while((dir = readdir(dr)) != 0){
+        if(strcmp(dir->d_name,".") == 0|| strcmp(dir->d_name,"..") == 0)
+            continue;
+        strcpy (filepath, path);
+        strcat (filepath, "/");
+        strcat (filepath, dir->d_name);
+        if (stat(filepath, &file) < 0) {
+            printf("Error reading file stat.\n");
+            exit(1);
+        }
+        size += file.st_size;
+    }
+    return size;
+}
+
 int printDirectory (char* path, int size){
     int count = 0, x, size2 = size;
     do
@@ -152,7 +204,9 @@ int main(int argc, char* argv[], char* envp[]){
                 closedir(dr);
             }
             if(f.bytes){
-                printf("Total size in bytes: %ld\n",stat_buff.st_size);
+                size = stat_buff.st_size;
+                size += directoryTotalSize(path);
+                printDirectory(path, size);
             }
         }
     }
