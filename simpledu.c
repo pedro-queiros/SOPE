@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <dirent.h>
 #include <limits.h>
+#include<sys/wait.h>
 
 #include "args.h"
 
@@ -124,7 +125,9 @@ int readDir (char* path){
     DIR* dr;
     struct dirent *dir;
     char filepath[256];
-    int size = 0;
+    struct stat check;
+    int size = 0, status;
+    pid_t pid;
 
     if ((dr = opendir(path)) == NULL){
         perror(path);
@@ -137,12 +140,30 @@ int readDir (char* path){
         strcpy (filepath, path);
         strcat (filepath, "/");
         strcat (filepath, dir->d_name);
-        if (f.all || f.dereference)
-            size += readRegBlocks(filepath);
-        if (f.bytes)
-            size += readRegBytes(filepath);
-        if (f.blockSize)
-            size += readRegBlocks(filepath);
+        stat(filepath,&check);
+        if(S_ISDIR(check.st_mode)){
+            pid = fork();
+            if (pid == 0){     //processo-filho
+                //printf("FILHO\n");
+                size = 0;
+                size += readDir(filepath);
+                //printf("FILHO TERMINOU\n");
+                size += check.st_blocks/2;
+                printToConsole(size, filepath);
+                exit(0);
+            }
+        }
+        else{
+            waitpid(-1,&status,0);
+            if (f.all || f.dereference)
+                size += readRegBlocks(filepath);
+            if (f.bytes)
+                size += readRegBytes(filepath);
+            if (f.blockSize)
+                size += readRegBlocks(filepath);
+            if(!f.all && !f.bytes && !f.dereference && !f.separate && !f.blockSize && !f.depth)
+                size += readRegBlocks(filepath);
+        }
     }
     return size;
 }
@@ -195,11 +216,12 @@ int main(int argc, char* argv[], char* envp[]){
                     intpart = result + 1;
                 printToConsole(intpart, path);
             }
-            if (f.dereference){
+            else{                                //maybe need to be an if
                 size = readDir(path);
                 size += stat_buff.st_blocks / 2;
                 printToConsole(size, path);
             }
+
         }
         closedir(dr);
     }
