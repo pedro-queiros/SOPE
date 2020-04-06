@@ -58,6 +58,10 @@ void checkFlags(int size, char* argv[], struct flags *f){
         printf();
 }*/
 
+int checkArgs(int argc, char* argv[]){
+    return 0;
+}
+
 void printToConsole(int size, char* filepath){
     printf("%d",size);
     int count = 0, x;
@@ -66,21 +70,32 @@ void printToConsole(int size, char* filepath){
         count++;
         size /= 10;
     } while(size != 0);
+
     count = 8 - count;
+
     for (x = 0; x < count; x++){
         printf(" ");
     }
+
     printf("%s\n", filepath);
 }
 
 int readRegBlocks (char* filepath){
     struct stat file;
-    int size;
-    if (stat(filepath, &file) < 0) {
+    int size, res;
+
+    if (f.dereference)
+        res = lstat(filepath, &file);
+    else
+        res = stat(filepath, &file);
+
+    if (res < 0) {
         printf("Error reading file stat.\n");
         exit(1);
     }
+
     size = file.st_blocks / 2;
+
     if (f.all)
         printToConsole(size, filepath);
     return size;
@@ -89,10 +104,12 @@ int readRegBlocks (char* filepath){
 int readRegBytes (char* filepath){
     struct stat file;
     int size;
+
     if (stat(filepath, &file) < 0) {
         printf("Error reading file stat.\n");
         exit(1);
     }
+
     size = file.st_size;
     return size;
 }
@@ -102,17 +119,19 @@ int readDir (char* path){
     struct dirent *dir;
     char filepath[256];
     int size = 0;
+
     if ((dr = opendir(path)) == NULL){
         perror(path);
         exit(1);
     }
+
     while((dir = readdir(dr)) != 0){
         if(strcmp(dir->d_name,".") == 0|| strcmp(dir->d_name,"..") == 0)
             continue;
         strcpy (filepath, path);
         strcat (filepath, "/");
         strcat (filepath, dir->d_name);
-        if (f.all)
+        if (f.all || f.dereference)
             size += readRegBlocks(filepath);
         if (f.bytes)
             size += readRegBytes(filepath);
@@ -133,17 +152,21 @@ int main(int argc, char* argv[], char* envp[]){
         fprintf(stderr, "Usage: %s -l [path] [-a] [-b] [-B size] [-L] [-S] [--max-depth=N]\n", argv[0]);
         exit(1);
     }
+
     strcpy(path,argv[2]);
+
     /*if((src = open("output.txt",O_WRONLY | O_CREAT | O_TRUNC, 0600)) == -1){
         printf("Error Number % d\n", errno);
         perror("Error: ");
         exit(2);
     }*/
+
     checkFlags(argc,argv,&f);
     if(stat(argv[2],&stat_buff) == -1){
         perror("lstat ERROR");
         exit(3);
     }
+
     if(S_ISDIR(stat_buff.st_mode)){
         dr = opendir(path);
         if(dr){
@@ -166,6 +189,11 @@ int main(int argc, char* argv[], char* envp[]){
                 if (result - intpart > 0)
                     intpart = result + 1;
                 printToConsole(intpart, path);
+            }
+            if (f.dereference){
+                size = readDir(path);
+                size += stat_buff.st_blocks / 2;
+                printToConsole(size, path);
             }
         }
         closedir(dr);
