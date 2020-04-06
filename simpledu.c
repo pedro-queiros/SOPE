@@ -85,13 +85,19 @@ int readRegBlocks (char* filepath){
     int size, res;
 
     if (f.dereference)
-        res = lstat(filepath, &file);
-    else
         res = stat(filepath, &file);
+    else
+        res = lstat(filepath, &file);
 
     if (res < 0) {
         printf("Error reading file stat.\n");
         exit(1);
+    }
+
+    if(f.separate){
+        if(S_ISDIR(file.st_mode)){
+            return 0;
+        }
     }
 
     size = file.st_blocks / 2;
@@ -135,9 +141,8 @@ int readDir (char* path){
             size += readRegBlocks(filepath);
         if (f.bytes)
             size += readRegBytes(filepath);
-        if (f.blockSize) {
+        if (f.blockSize)
             size += readRegBlocks(filepath);
-        }
     }
     return size;
 }
@@ -171,7 +176,7 @@ int main(int argc, char* argv[], char* envp[]){
         dr = opendir(path);
         if(dr){
             //dup2(src,STDOUT_FILENO);
-            if(f.all){
+            if(f.all || f.dereference || f.separate){
                 size = readDir(path);
                 size += stat_buff.st_blocks / 2;
                 printToConsole(size, path);
