@@ -119,10 +119,11 @@ int getSubString(char *source, char *target,int from, int to)
 }
 
 void printToConsole(int size, char* filepath){
-    char path[256];
-    getSubString(filepath, path, strlen(initialDir) + 1, strlen(filepath));
-    if (numTimesAppears(path, '/') >= args.max_depth) return;
-
+    if(f.depth){
+        char path[256];
+        getSubString(filepath, path, strlen(initialDir) + 1, strlen(filepath));
+        if (numTimesAppears(path, '/') >= args.max_depth) return;
+    }
     printf("%d",size);
     int count = 0, x;
     do
@@ -138,6 +139,7 @@ void printToConsole(int size, char* filepath){
     }
 
     printf("%s\n", filepath);
+
 }
 
 void printTotal(int size, char* filepath){
@@ -178,15 +180,28 @@ int readRegBlocks (char* filepath){
         }
     }
 
-    size = file.st_blocks / 2;
+    //size = file.st_blocks / 2;
+    if (f.bytes)
+        size = file.st_size;
+    else
+        size = file.st_blocks/2;
 
-    if (f.all)
+    if (f.blockSize) {
+        //size = file.st_blocks / 2;
+        double result = size * (1024.0 / args.block_size);
+        size = (int) result;
+        if (result - size > 0)
+            size = result + 1;
+    }
+
+    if (f.all && !S_ISDIR(file.st_mode))
         printToConsole(size, filepath);
 
     return size;
 }
 
-int readRegBytes (char* filepath){
+
+/*int readRegBytes (char* filepath){
     struct stat file;
     int size;
 
@@ -197,7 +212,8 @@ int readRegBytes (char* filepath){
 
     size = file.st_size;
     return size;
-}
+}*/
+
 
 int readDir (char* path){
     DIR* dr;
@@ -226,7 +242,11 @@ int readDir (char* path){
             if (pid == 0){            //processo-filho
                 int childSize = 0;
                 childSize += readDir(filepath);
-                childSize += check.st_blocks/2;
+                //childSize += check.st_blocks/2;
+                /*if (f.bytes)
+                    childSize += check.st_size;
+                else
+                    childSize += check.st_blocks/2;*/
                 close(fd[READ]);
                 write(fd[WRITE],&childSize,sizeof(int));
                 close(fd[WRITE]);
@@ -238,21 +258,39 @@ int readDir (char* path){
                 read(fd[READ],&aux,sizeof(int));
                 close(fd[READ]);
                 size += aux;
-                printToConsole(aux, filepath);
+                //printToConsole(aux, filepath);
             }
         }
         else{
             //waitpid(-1,&status,0);
-            if (f.all || f.dereference)
+            size += readRegBlocks(filepath);
+            /*if (f.all || f.dereference)
                 size += readRegBlocks(filepath);
             if (f.bytes)
                 size += readRegBytes(filepath);
             if (f.blockSize)
                 size += readRegBlocks(filepath);
             if(!f.all && !f.bytes && !f.dereference && !f.separate && !f.blockSize && !f.depth)
-                size += readRegBlocks(filepath);
+                size += readRegBlocks(filepath);*/
         }
     }
+    size += readRegBlocks(path);
+    /*stat(path,&currentDir);
+    if (f.bytes)
+        size += currentDir.st_size;
+    //else
+        //size += currentDir.st_blocks/2;
+    if (f.blockSize) {
+        //size = file.st_blocks / 2;
+        //printf("%d\n",size);
+        double result = currentDir.st_blocks/2 * (1024.0 / args.block_size);
+        int interpart = (int) result;
+        if (result - interpart > 0)
+            interpart = result + 1;
+        size += interpart;
+        //printTotal(interpart,path);
+    }*/
+    printTotal(size,path);
     return size;
 }
 
@@ -261,7 +299,7 @@ int main(int argc, char* argv[], char* envp[]){
     struct stat stat_buff;
     DIR *dr;
     char path[256];
-    int size;
+    //int size;
     if(argc > 8){
         fprintf(stderr, "Usage: %s -l [path] [-a] [-b] [-B size] [-L] [-S] [--max-depth=N]\n", argv[0]);
         exit(1);
@@ -285,8 +323,11 @@ int main(int argc, char* argv[], char* envp[]){
     if(S_ISDIR(stat_buff.st_mode)){
         dr = opendir(path);
         if(dr){
+            readDir(path);
+            //size += stat_buff.st_blocks/2;
+
             //dup2(src,STDOUT_FILENO);
-            if(f.all || f.dereference || f.separate){
+            /*if(f.all || f.dereference || f.separate){
                 size = readDir(path);
                 size += stat_buff.st_blocks / 2;
                 printTotal(size, path);
@@ -313,8 +354,10 @@ int main(int argc, char* argv[], char* envp[]){
                 //printToConsole(size, path);
                 printTotal(size, path);
             }
-        }
+        }*/
         closedir(dr);
+    }
     }
     exit(0);
 }
+
