@@ -174,11 +174,10 @@ int readRegBlocks (char* filepath){
         exit(1);
     }
 
-    if(f.separate){
-        if(S_ISDIR(file.st_mode)){
-            return 0;
-        }
-    }
+    /*if(f.separate && S_ISDIR(file.st_mode)){
+        printf("ESTOU AQUI\n");
+        return 0;
+    }*/
 
     //size = file.st_blocks / 2;
     if (f.bytes)
@@ -237,29 +236,30 @@ int readDir (char* path){
         strcat (filepath, dir->d_name);
         stat(filepath,&check);
         if(S_ISDIR(check.st_mode)){
-            pipe(fd);
-            pid = fork();
-            if (pid == 0){            //processo-filho
-                int childSize = 0;
-                childSize += readDir(filepath);
-                //childSize += check.st_blocks/2;
-                /*if (f.bytes)
-                    childSize += check.st_size;
-                else
-                    childSize += check.st_blocks/2;*/
-                close(fd[READ]);
-                write(fd[WRITE],&childSize,sizeof(int));
-                close(fd[WRITE]);
-                exit(0);
-            }
-            else if (pid > 0){        //processo-pai
-                waitpid(-1,&status,0);
-                close(fd[WRITE]);
-                read(fd[READ],&aux,sizeof(int));
-                close(fd[READ]);
-                size += aux;
-                //printToConsole(aux, filepath);
-            }
+                pipe(fd);
+                pid = fork();
+                if (pid == 0){            //processo-filho
+                    int childSize = 0;
+                    childSize += readDir(filepath);
+                    //childSize += check.st_blocks/2;
+                    /*if (f.bytes)
+                        childSize += check.st_size;
+                    else
+                        childSize += check.st_blocks/2;*/
+                    close(fd[READ]);
+                    write(fd[WRITE],&childSize,sizeof(int));
+                    close(fd[WRITE]);
+                    exit(0);
+                }
+                else if (pid > 0){        //processo-pai
+                    waitpid(-1,&status,0);
+                    close(fd[WRITE]);
+                    read(fd[READ],&aux,sizeof(int));
+                    close(fd[READ]);
+                    if(!f.separate)
+                        size += aux;
+                    //printToConsole(aux, filepath);
+                }
         }
         else{
             //waitpid(-1,&status,0);
@@ -274,7 +274,9 @@ int readDir (char* path){
                 size += readRegBlocks(filepath);*/
         }
     }
+
     size += readRegBlocks(path);
+
     /*stat(path,&currentDir);
     if (f.bytes)
         size += currentDir.st_size;
