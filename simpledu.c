@@ -10,10 +10,13 @@
 #include <dirent.h>
 #include <limits.h>
 #include<sys/wait.h>
+#include<sys/types.h>
 
 #include "args.h"
 
 #define MAX_COMMANDS 10
+#define READ 0
+#define WRITE 1
 
 char *possibleFlags[13] = {"-a","--all","-b","--bytes","-B","--block-size","-l","--count-links","-L","--dereference","-S","--separate-dirs","--max-depth"};
 
@@ -126,7 +129,8 @@ int readDir (char* path){
     struct dirent *dir;
     char filepath[256];
     struct stat check;
-    int size = 0, status;
+    int size = 0, status, aux = 0;
+    int fd[1];
     pid_t pid;
 
     if ((dr = opendir(path)) == NULL){
@@ -142,19 +146,28 @@ int readDir (char* path){
         strcat (filepath, dir->d_name);
         stat(filepath,&check);
         if(S_ISDIR(check.st_mode)){
+            pipe(fd);
             pid = fork();
-            if (pid == 0){     //processo-filho
-                //printf("FILHO\n");
-                size = 0;
-                size += readDir(filepath);
-                //printf("FILHO TERMINOU\n");
-                size += check.st_blocks/2;
-                printToConsole(size, filepath);
+            if (pid == 0){            //processo-filho
+                int childSize = 0;
+                childSize += readDir(filepath);
+                childSize += check.st_blocks/2;
+                close(fd[READ]);
+                write(fd[WRITE],&childSize,sizeof(int));
+                close(fd[WRITE]);
                 exit(0);
+            }
+            else if (pid > 0){        //processo-pai
+                waitpid(-1,&status,0);
+                close(fd[WRITE]);
+                read(fd[READ],&aux,sizeof(int));
+                close(fd[READ]);
+                size += aux;
+                printToConsole(aux, filepath);
             }
         }
         else{
-            waitpid(-1,&status,0);
+            //waitpid(-1,&status,0);
             if (f.all || f.dereference)
                 size += readRegBlocks(filepath);
             if (f.bytes)
@@ -167,6 +180,7 @@ int readDir (char* path){
     }
     return size;
 }
+
 
 int main(int argc, char* argv[], char* envp[]){
     //int src;
@@ -202,12 +216,12 @@ int main(int argc, char* argv[], char* envp[]){
                 size += stat_buff.st_blocks / 2;
                 printToConsole(size, path);
             }
-            if(f.bytes){
+            else if(f.bytes){
                 size = readDir(path);
                 size += stat_buff.st_size;
                 printToConsole(size, path);
             }
-            if (f.blockSize){
+            else if (f.blockSize){
                 size = readDir(path);
                 size += stat_buff.st_blocks / 2;
                 double result = size * (1024.0 / args.block_size);
