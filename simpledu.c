@@ -9,9 +9,8 @@
 #include <stdbool.h>
 #include <dirent.h>
 #include <limits.h>
-#include<sys/wait.h>
-#include<sys/types.h>
-
+#include <sys/wait.h>
+#include <sys/types.h>
 #include "args.h"
 
 #define MAX_COMMANDS 10
@@ -19,6 +18,8 @@
 #define WRITE 1
 
 char *possibleFlags[13] = {"-a","--all","-b","--bytes","-B","--block-size","-l","--count-links","-L","--dereference","-S","--separate-dirs","--max-depth"};
+
+char initialDir[256];
 
 struct flags{
     bool all;
@@ -33,6 +34,20 @@ struct flags{
 struct flags f = {false,false,0,false,false,false,0};
 
 struct Args args = {0,0,1024,0,0,0,-1};
+
+void getNumber(char* cmd){
+    char* blockSize = "--block-size=";
+    char* max_d = "--max-depth=";
+    if (strncmp(cmd, blockSize,13) == 0){
+        cmd = strtok(cmd, "=");
+        args.block_size = atoi(strtok(NULL, "="));
+    }
+
+    else if (strncmp(cmd, max_d, 12) == 0){
+        cmd = strtok(cmd, "=");
+        args.max_depth = atoi(strtok(NULL, "="));
+    }
+}
 
 void checkFlags(int size, char* argv[], struct flags *f){
     for (int i = 0; i < size ; ++i) {
@@ -51,8 +66,7 @@ void checkFlags(int size, char* argv[], struct flags *f){
             f->dereference = true;
         else if(strcmp(argv[i],possibleFlags[10]) == 0 || strcmp(argv[i],possibleFlags[11]) == 0)
             f->separate = true;
-        else if(strcmp(argv[i],possibleFlags[12]) == 0)
-            f->depth = true;
+        else getNumber(argv[i]);
     }
 }
 
@@ -62,11 +76,71 @@ void checkFlags(int size, char* argv[], struct flags *f){
         printf();
 }*/
 
-int checkArgs(int argc, char* argv[]){
+int numTimesAppears(char* string, char ch)
+{
+    int i;
+    int count = 0;
+    for(i = 0; string[i] != '\0' ; ++i)
+    {
+        if (string[i] == ch)
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
+int getSubString(char *source, char *target,int from, int to)
+{
+    int length=0;
+    int i=0,j=0;
+
+    //get length
+    while(source[i++]!='\0')
+        length++;
+
+    if(from<0 || from>length){
+        printf("Invalid \'from\' index\n");
+        return 1;
+    }
+    if(to>length){
+        printf("Invalid \'to\' index\n");
+        return 1;
+    }
+
+    for(i=from,j=0;i<=to;i++,j++){
+        target[j]=source[i];
+    }
+
+    //assign NULL at the end of string
+    target[j]='\0';
+
     return 0;
 }
 
 void printToConsole(int size, char* filepath){
+    char path[256];
+    getSubString(filepath, path, strlen(initialDir) + 1, strlen(filepath));
+    if (numTimesAppears(path, '/') >= args.max_depth) return;
+
+    printf("%d",size);
+    int count = 0, x;
+    do
+    {
+        count++;
+        size /= 10;
+    } while(size != 0);
+
+    count = 8 - count;
+
+    for (x = 0; x < count; x++){
+        printf(" ");
+    }
+
+    printf("%s\n", filepath);
+}
+
+void printTotal(int size, char* filepath){
     printf("%d",size);
     int count = 0, x;
     do
@@ -108,6 +182,7 @@ int readRegBlocks (char* filepath){
 
     if (f.all)
         printToConsole(size, filepath);
+
     return size;
 }
 
@@ -181,7 +256,6 @@ int readDir (char* path){
     return size;
 }
 
-
 int main(int argc, char* argv[], char* envp[]){
     //int src;
     struct stat stat_buff;
@@ -194,6 +268,7 @@ int main(int argc, char* argv[], char* envp[]){
     }
 
     strcpy(path,argv[2]);
+    strcpy(initialDir, argv[2]);
 
     /*if((src = open("output.txt",O_WRONLY | O_CREAT | O_TRUNC, 0600)) == -1){
         printf("Error Number % d\n", errno);
@@ -214,12 +289,13 @@ int main(int argc, char* argv[], char* envp[]){
             if(f.all || f.dereference || f.separate){
                 size = readDir(path);
                 size += stat_buff.st_blocks / 2;
-                printToConsole(size, path);
+                printTotal(size, path);
             }
             else if(f.bytes){
                 size = readDir(path);
                 size += stat_buff.st_size;
-                printToConsole(size, path);
+                //printToConsole(size, path);
+                printTotal(size, path);
             }
             else if (f.blockSize){
                 size = readDir(path);
@@ -228,14 +304,15 @@ int main(int argc, char* argv[], char* envp[]){
                 int intpart = (int) result;
                 if (result - intpart > 0)
                     intpart = result + 1;
-                printToConsole(intpart, path);
+                //printToConsole(intpart, path);
+                printTotal(size, path);
             }
             else{                                //maybe need to be an if
                 size = readDir(path);
                 size += stat_buff.st_blocks / 2;
-                printToConsole(size, path);
+                //printToConsole(size, path);
+                printTotal(size, path);
             }
-
         }
         closedir(dr);
     }
