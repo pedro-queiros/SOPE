@@ -217,6 +217,39 @@ int readRegBlocks (char* filepath){
     return size;
 }
 
+//static pid_t pid;
+/*void perguntar(int sign){
+    char input;
+    kill(-2,SIGSTOP);
+    printf("Do you want to terminate the program (Y/N):\n");
+    scanf("%c",&input);
+    if(input == 'Y' || input =='y')
+        sigint_handler(sign);
+}*/
+
+/*bool teste = false;
+
+void carlos(int sign){
+    teste = true;
+}*/
+
+
+void sigint_handler(int sign) {
+    char input;
+    kill(-2,SIGSTOP);
+    printf("Do you want to terminate the program (Y/N):\n");
+    scanf("%c",&input);
+    if(input == 'Y' || input == 'y'){
+        kill(getpid(),SIGTERM);
+    }
+    else if(input == 'N' || input == 'n'){
+        kill(-2,SIGCONT);
+    }
+    else{
+        printf("Invalid input\n");
+    }
+}
+
 int readDir (char* path){
     DIR* dr;
     struct dirent *dir;
@@ -229,6 +262,15 @@ int readDir (char* path){
     if ((dr = opendir(path)) == NULL){
         perror(path);
         exit(1);
+    }
+
+    struct sigaction act;
+    act.sa_handler = sigint_handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    if(sigaction(SIGINT,&act,NULL) == -1){
+        fprintf(stderr,"Unable to install SIGINT handler\n");
+        exit(4);
     }
 
     while((dir = readdir(dr)) != 0){
@@ -249,7 +291,7 @@ int readDir (char* path){
                 close(fd[WRITE]);
                 exit(0);
             }
-            else if (pid > 0){        //processo-pai
+            else if (pid > 0){      //processo-pai
                 waitpid(-1,&status,0);
                 close(fd[WRITE]);
                 read(fd[READ],&aux,sizeof(int));
@@ -276,6 +318,7 @@ int readDir (char* path){
     }
 
     printTotal(size,path);
+    sleep(3);
     return size;
 }
 
