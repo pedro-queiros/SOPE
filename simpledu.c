@@ -24,28 +24,21 @@ char initialDir[256];
 struct flags{
     bool all;
     bool bytes;
-    bool blockSize;
+    int blockSize;
     bool countLinks;
     bool dereference;
     bool separate;
-    bool depth;
+    int depth;
 };
 
-struct flags f = {false,false,0,false,false,false,0};
-
-struct Args args = {0,0,1024,0,0,0,-1};
+struct flags f = {false,false,0,false,false,false,-1};
 
 void getNumber(char* cmd){
-    char* blockSize = "--block-size=";
     char* max_d = "--max-depth=";
-    if (strncmp(cmd, blockSize,13) == 0){
-        cmd = strtok(cmd, "=");
-        args.block_size = atoi(strtok(NULL, "="));
-    }
 
-    else if (strncmp(cmd, max_d, 12) == 0){
+    if (strncmp(cmd, max_d, 12) == 0){
         cmd = strtok(cmd, "=");
-        args.max_depth = atoi(strtok(NULL, "="));
+        f.depth = atoi(strtok(NULL, "="));
     }
 }
 
@@ -57,8 +50,7 @@ void checkFlags(int size, char* argv[], struct flags *f){
         else if(strcmp(argv[i],possibleFlags[2]) == 0 || strcmp(argv[i],possibleFlags[3]) == 0)
             f->bytes = true;
         else if(strcmp(argv[i],possibleFlags[4]) == 0 || strcmp(argv[i],possibleFlags[5]) == 0) {
-            f->blockSize = true;
-            args.block_size = atoi(argv[i+1]);
+            f->blockSize = atoi(argv[i+1]);
         }
         else if(strcmp(argv[i],possibleFlags[6]) == 0 || strcmp(argv[i],possibleFlags[7]) == 0)
             f->countLinks = true;
@@ -119,11 +111,12 @@ int getSubString(char *source, char *target,int from, int to)
 }
 
 void printToConsole(int size, char* filepath){
-    if(f.depth){
+    if(f.depth != -1){
         char path[256];
         getSubString(filepath, path, strlen(initialDir) + 1, strlen(filepath));
-        if (numTimesAppears(path, '/') >= args.max_depth) return;
+        if (numTimesAppears(path, '/') >= f.depth) return;
     }
+
     printf("%d",size);
     int count = 0, x;
     do
@@ -143,6 +136,12 @@ void printToConsole(int size, char* filepath){
 }
 
 void printTotal(int size, char* filepath){
+    if(f.depth != -1 && strcmp(filepath, initialDir)){
+        char path[256];
+        getSubString(filepath, path, strlen(initialDir)+1, strlen(filepath));
+        if (numTimesAppears(path, '/') >= f.depth) return;
+    }
+
     printf("%d",size);
     int count = 0, x;
     do
@@ -187,14 +186,20 @@ int readRegBlocks (char* filepath){
 
     if (f.blockSize) {
         //size = file.st_blocks / 2;
-        double result = size * (1024.0 / args.block_size);
+        //int size2 = file.st_size;
+        int size2 = size;
+        double result = size * (1024.0 / f.blockSize);
         size = (int) result;
         if (result - size > 0)
             size = result + 1;
+        if (f.all && !S_ISDIR(file.st_mode))
+            printToConsole(size, filepath);
+        return size2;
     }
 
-    if (f.all && !S_ISDIR(file.st_mode))
+    if (f.all && !S_ISDIR(file.st_mode)) {
         printToConsole(size, filepath);
+    }
 
     return size;
 }
@@ -203,12 +208,10 @@ int readRegBlocks (char* filepath){
 /*int readRegBytes (char* filepath){
     struct stat file;
     int size;
-
     if (stat(filepath, &file) < 0) {
         printf("Error reading file stat.\n");
         exit(1);
     }
-
     size = file.st_size;
     return size;
 }*/
@@ -236,34 +239,35 @@ int readDir (char* path){
         strcat (filepath, dir->d_name);
         stat(filepath,&check);
         if(S_ISDIR(check.st_mode)){
-                pipe(fd);
-                pid = fork();
-                if (pid == 0){            //processo-filho
-                    int childSize = 0;
-                    childSize += readDir(filepath);
-                    //childSize += check.st_blocks/2;
-                    /*if (f.bytes)
-                        childSize += check.st_size;
-                    else
-                        childSize += check.st_blocks/2;*/
-                    close(fd[READ]);
-                    write(fd[WRITE],&childSize,sizeof(int));
-                    close(fd[WRITE]);
-                    exit(0);
-                }
-                else if (pid > 0){        //processo-pai
-                    waitpid(-1,&status,0);
-                    close(fd[WRITE]);
-                    read(fd[READ],&aux,sizeof(int));
-                    close(fd[READ]);
-                    if(!f.separate)
-                        size += aux;
-                    //printToConsole(aux, filepath);
-                }
+            pipe(fd);
+            pid = fork();
+            if (pid == 0){            //processo-filho
+                int childSize = 0;
+                childSize += readDir(filepath);
+                //childSize += check.st_blocks/2;
+                /*if (f.bytes)
+                    childSize += check.st_size;
+                else
+                    childSize += check.st_blocks/2;*/
+                close(fd[READ]);
+                write(fd[WRITE],&childSize,sizeof(int));
+                close(fd[WRITE]);
+                exit(0);
+            }
+            else if (pid > 0){        //processo-pai
+                waitpid(-1,&status,0);
+                close(fd[WRITE]);
+                read(fd[READ],&aux,sizeof(int));
+                close(fd[READ]);
+                if(!f.separate)
+                    size += aux;
+                //printToConsole(aux, filepath);
+            }
         }
         else{
             //waitpid(-1,&status,0);
             size += readRegBlocks(filepath);
+
             /*if (f.all || f.dereference)
                 size += readRegBlocks(filepath);
             if (f.bytes)
@@ -276,6 +280,16 @@ int readDir (char* path){
     }
 
     size += readRegBlocks(path);
+
+    if (f.blockSize) {
+        int size2 = size;
+        double result = size * (1024.0 / f.blockSize);
+        size = (int) result;
+        if (result - size > 0)
+            size = result + 1;
+        printTotal(size,path);
+        return size2;
+    }
 
     /*stat(path,&currentDir);
     if (f.bytes)
@@ -357,9 +371,8 @@ int main(int argc, char* argv[], char* envp[]){
                 printTotal(size, path);
             }
         }*/
-        closedir(dr);
-    }
+            closedir(dr);
+        }
     }
     exit(0);
 }
-
