@@ -1,5 +1,0 @@
-0     ./output.txt
-16     ./simpledu
-4     ./simpledu.c
-4     ./.gitignore
-4     .

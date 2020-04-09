@@ -1,7 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include "logs.h"
 #include <sys/stat.h>
-#include <unistd.h>
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -10,9 +8,8 @@
 #include <dirent.h>
 #include <limits.h>
 #include <sys/wait.h>
-#include <sys/types.h>
-#include <ctype.h>
 #include "args.h"
+#include "utils.h"
 
 #define MAX_COMMANDS 10
 #define READ 0
@@ -23,15 +20,6 @@ char *possibleFlags[13] = {"-a","--all","-b","--bytes","-B","--block-size","-l",
 char initialDir[256];
 
 struct flags f = {false,false,0,false,false,false,-1};
-
-int isNumeric (const char * s)
-{
-    if (s == NULL || *s == '\0' || isspace(*s))
-        return 0;
-    char * p;
-    strtod (s, &p);
-    return *p == '\0';
-}
 
 bool getNumber(char* cmd){
     char* max_d = "--max-depth=";
@@ -79,54 +67,6 @@ bool checkFlags(int size, char* argv[], struct flags *f){
     }
 
     return errors;
-}
-
-/*void writeToFile(int src,struct flags f){
-    dup2(src,STDOUT_FILENO);
-    if(f.all){
-        printf();
-}*/
-
-int numTimesAppears(char* string, char ch)
-{
-    int i;
-    int count = 0;
-    for(i = 0; string[i] != '\0' ; ++i)
-    {
-        if (string[i] == ch)
-        {
-            count++;
-        }
-    }
-    return count;
-}
-
-int getSubString(char *source, char *target,int from, int to)
-{
-    int length=0;
-    int i=0,j=0;
-
-    //get length
-    while(source[i++]!='\0')
-        length++;
-
-    if(from<0 || from>length){
-        printf("Invalid \'from\' index\n");
-        return 1;
-    }
-    if(to>length){
-        printf("Invalid \'to\' index\n");
-        return 1;
-    }
-
-    for(i=from,j=0;i<=to;i++,j++){
-        target[j]=source[i];
-    }
-
-    //assign NULL at the end of string
-    target[j]='\0';
-
-    return 0;
 }
 
 void printToConsole(int size, char* filepath){
@@ -205,13 +145,16 @@ int readRegBlocks (char* filepath){
         size = (int) result;
         if (result - size > 0)
             size = result + 1;
-        if (f.all && !S_ISDIR(file.st_mode))
+        if (f.all && !S_ISDIR(file.st_mode)) {
             printToConsole(size, filepath);
+            logEntry(size, filepath);
+        }
         return size2;
     }
 
     if (f.all && !S_ISDIR(file.st_mode)) {
         printToConsole(size, filepath);
+        logEntry(size, filepath);
     }
 
     return size;
@@ -223,11 +166,12 @@ int groupId;
 void sigint_handler(int sign) {
     char input;
     kill(-groupId,SIGSTOP);
-    fprintf(stderr,"GROUP ID: %d\n",groupId);
-    printf("Do you want to terminate the program (Y/N):\n");
+    printf("\nDo you want to terminate the program (Y/N):\n");
     scanf("%c",&input);
     if(input == 'Y' || input == 'y'){
-        kill(getpid(),SIGTERM);
+        if (kill(getpid(),SIGTERM) == -1){
+            printf("Unsucess\n");
+        }
     }
     else if(input == 'N' || input == 'n'){
         kill(-groupId,SIGCONT);
@@ -235,11 +179,10 @@ void sigint_handler(int sign) {
     else{
         printf("Invalid input\n");
     }
+    printf("Exiting\n");
 }
 
-
-
-int readDir (char* path){
+int readDir (char* path, int argc, char* argv[]){
     DIR* dr;
     struct dirent *dir;
     char filepath[256];
@@ -250,7 +193,7 @@ int readDir (char* path){
 
     if ((dr = opendir(path)) == NULL){
         perror(path);
-        exit(1);
+        logExit(1);
     }
     while((dir = readdir(dr)) != 0){
         if(strcmp(dir->d_name,".") == 0|| strcmp(dir->d_name,"..") == 0)
@@ -263,6 +206,7 @@ int readDir (char* path){
             pipe(fd);
             pid = fork();
             if (pid == 0){      //processo-filho
+                createLogs(argc, argv);
                 int childSize = 0;
                 struct sigaction act;
                 act.sa_handler = SIG_IGN;
@@ -271,16 +215,18 @@ int readDir (char* path){
                 if(parentId != getpid()){
                     sigaction(SIGINT,&act,NULL);
                 }
-                childSize += readDir(filepath);
+                childSize += readDir(filepath, argc, argv);
                 close(fd[READ]);
                 write(fd[WRITE],&childSize,sizeof(int));
+                pipeSentLog(childSize);
                 close(fd[WRITE]);
-                exit(0);
+                logExit(0);
             }
             else if (pid > 0){      //processo-pai
                 waitpid(-1,&status,0);
                 close(fd[WRITE]);
                 read(fd[READ],&aux,sizeof(int));
+                pipeReceivedLog(aux);
                 close(fd[READ]);
                 if(!f.separate)
                     size += aux;
@@ -300,41 +246,38 @@ int readDir (char* path){
         if (result - size > 0)
             size = result + 1;
         printTotal(size,path);
+        logEntry(size, path);
         return size2;
     }
 
     printTotal(size,path);
+    logEntry(size, path);
     return size;
 }
 
 int main(int argc, char* argv[], char* envp[]){
+    logHandler();
     struct stat stat_buff;
     DIR *dr;
     char path[256];
-    //int size;
-    if(argc > 8){
+    if((argc > 8) || strcmp(argv[1], "-l")){
         fprintf(stderr, "Usage: %s -l [path] [-a] [-b] [-B size] [-L] [-S] [--max-depth=N]\n", argv[0]);
-        exit(1);
+        logExit(1);
     }
 
     strcpy(path,argv[2]);
     strcpy(initialDir, argv[2]);
 
-    /*if((src = open("output.txt",O_WRONLY | O_CREAT | O_TRUNC, 0600)) == -1){
-        printf("Error Number % d\n", errno);
-        perror("Error: ");
-        exit(2);
-    }*/
 
     if (checkFlags(argc,argv,&f)){
         printf("Non valid set of arguments\n");
-        exit(1);
+        logExit(1);
     }
+    createLogs(argc, argv);
 
     if(stat(argv[2],&stat_buff) == -1){
-        //perror("simpledu: cannot access '%s': No such file or directory", argv[2]);
         printf("simpledu: cannot access '%s': No such file or directory\n", argv[2]);
-        exit(3);
+        logExit(3);
     }
 
     parentId = getpid();
@@ -345,7 +288,7 @@ int main(int argc, char* argv[], char* envp[]){
     act.sa_flags = 0;
     if(sigaction(SIGINT,&act,NULL) < 0){
         fprintf(stderr,"Unable to install SIGINT handler\n");
-        exit(4);
+        logExit(4);
     }
 
     pid_t pid;
@@ -355,13 +298,13 @@ int main(int argc, char* argv[], char* envp[]){
     if(pid == 0){
         if (setpgid(getpid(), getpid()) == -1) {
             perror("setpgid");
-            exit(-1);
+            logExit(-1);
         }
         //groupId = getpgrp();
         if(S_ISDIR(stat_buff.st_mode)){
             dr = opendir(path);
             if(dr){
-                readDir(path);
+                readDir(path, argc, argv);
                 closedir(dr);
             }
         }
@@ -369,25 +312,14 @@ int main(int argc, char* argv[], char* envp[]){
             int size = 0;
             size = readRegBlocks(path);
             printToConsole(size, path);
+            logEntry(size, path);
         }
-        //exit(0);
+        //logExit(0);
     }
     else if(pid > 0){
         groupId = pid;
         waitpid(-1,NULL,0);
     }
-    /*if(S_ISDIR(stat_buff.st_mode)){
-        dr = opendir(path);
-        if(dr){
-            readDir(path);
-            closedir(dr);
-        }
-    }
-    else {
-        int size = 0;
-        size = readRegBlocks(path);
-        printToConsole(size, path);
-    }*/
-    exit(0);
+    logExit(0);
 
 }
