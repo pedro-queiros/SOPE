@@ -218,27 +218,26 @@ int readRegBlocks (char* filepath){
 }
 
 int parentId;
+int groupId;
 
 void sigint_handler(int sign) {
     char input;
-    //printf("ENTERING HANDLER\n");
-    kill(-2,SIGTSTP);
+    kill(-groupId,SIGSTOP);
+    fprintf(stderr,"GROUP ID: %d\n",groupId);
     printf("Do you want to terminate the program (Y/N):\n");
     scanf("%c",&input);
     if(input == 'Y' || input == 'y'){
         kill(getpid(),SIGTERM);
     }
     else if(input == 'N' || input == 'n'){
-        kill(-2,SIGCONT);
+        kill(-groupId,SIGCONT);
     }
     else{
         printf("Invalid input\n");
     }
 }
 
-void sigstp_handler(int sign){
-    printf("ESTOU NO HANDLER DO STP\n");
-}
+
 
 int readDir (char* path){
     DIR* dr;
@@ -264,7 +263,6 @@ int readDir (char* path){
             pipe(fd);
             pid = fork();
             if (pid == 0){      //processo-filho
-                setpgid(0, -2);
                 int childSize = 0;
                 struct sigaction act;
                 act.sa_handler = SIG_IGN;
@@ -280,7 +278,7 @@ int readDir (char* path){
                 exit(0);
             }
             else if (pid > 0){      //processo-pai
-                waitpid(-1,&status,WNOHANG);
+                waitpid(-1,&status,0);
                 close(fd[WRITE]);
                 read(fd[READ],&aux,sizeof(int));
                 close(fd[READ]);
@@ -350,8 +348,35 @@ int main(int argc, char* argv[], char* envp[]){
         exit(4);
     }
 
+    pid_t pid;
 
-    if(S_ISDIR(stat_buff.st_mode)){
+    pid = fork();
+
+    if(pid == 0){
+        if (setpgid(getpid(), getpid()) == -1) {
+            perror("setpgid");
+            exit(-1);
+        }
+        //groupId = getpgrp();
+        if(S_ISDIR(stat_buff.st_mode)){
+            dr = opendir(path);
+            if(dr){
+                readDir(path);
+                closedir(dr);
+            }
+        }
+        else {
+            int size = 0;
+            size = readRegBlocks(path);
+            printToConsole(size, path);
+        }
+        //exit(0);
+    }
+    else if(pid > 0){
+        groupId = pid;
+        waitpid(-1,NULL,0);
+    }
+    /*if(S_ISDIR(stat_buff.st_mode)){
         dr = opendir(path);
         if(dr){
             readDir(path);
@@ -362,6 +387,7 @@ int main(int argc, char* argv[], char* envp[]){
         int size = 0;
         size = readRegBlocks(path);
         printToConsole(size, path);
-    }
+    }*/
     exit(0);
+
 }
