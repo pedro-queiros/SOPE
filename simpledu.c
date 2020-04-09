@@ -217,26 +217,12 @@ int readRegBlocks (char* filepath){
     return size;
 }
 
-//static pid_t pid;
-/*void perguntar(int sign){
-    char input;
-    kill(-2,SIGSTOP);
-    printf("Do you want to terminate the program (Y/N):\n");
-    scanf("%c",&input);
-    if(input == 'Y' || input =='y')
-        sigint_handler(sign);
-}*/
-
-/*bool teste = false;
-
-void carlos(int sign){
-    teste = true;
-}*/
-
+int parentId;
 
 void sigint_handler(int sign) {
     char input;
-    kill(-2,SIGSTOP);
+    //printf("ENTERING HANDLER\n");
+    kill(-2,SIGTSTP);
     printf("Do you want to terminate the program (Y/N):\n");
     scanf("%c",&input);
     if(input == 'Y' || input == 'y'){
@@ -248,6 +234,10 @@ void sigint_handler(int sign) {
     else{
         printf("Invalid input\n");
     }
+}
+
+void sigstp_handler(int sign){
+    printf("ESTOU NO HANDLER DO STP\n");
 }
 
 int readDir (char* path){
@@ -263,16 +253,6 @@ int readDir (char* path){
         perror(path);
         exit(1);
     }
-
-    struct sigaction act;
-    act.sa_handler = sigint_handler;
-    sigemptyset(&act.sa_mask);
-    act.sa_flags = 0;
-    if(sigaction(SIGINT,&act,NULL) == -1){
-        fprintf(stderr,"Unable to install SIGINT handler\n");
-        exit(4);
-    }
-
     while((dir = readdir(dr)) != 0){
         if(strcmp(dir->d_name,".") == 0|| strcmp(dir->d_name,"..") == 0)
             continue;
@@ -283,8 +263,16 @@ int readDir (char* path){
         if(S_ISDIR(check.st_mode)){
             pipe(fd);
             pid = fork();
-            if (pid == 0){            //processo-filho
+            if (pid == 0){      //processo-filho
+                setpgid(0, -2);
                 int childSize = 0;
+                struct sigaction act;
+                act.sa_handler = SIG_IGN;
+                sigemptyset(&act.sa_mask);
+                act.sa_flags = 0;
+                if(parentId != getpid()){
+                    sigaction(SIGINT,&act,NULL);
+                }
                 childSize += readDir(filepath);
                 close(fd[READ]);
                 write(fd[WRITE],&childSize,sizeof(int));
@@ -292,7 +280,7 @@ int readDir (char* path){
                 exit(0);
             }
             else if (pid > 0){      //processo-pai
-                waitpid(-1,&status,0);
+                waitpid(-1,&status,WNOHANG);
                 close(fd[WRITE]);
                 read(fd[READ],&aux,sizeof(int));
                 close(fd[READ]);
@@ -318,7 +306,6 @@ int readDir (char* path){
     }
 
     printTotal(size,path);
-    sleep(3);
     return size;
 }
 
@@ -351,6 +338,18 @@ int main(int argc, char* argv[], char* envp[]){
         printf("simpledu: cannot access '%s': No such file or directory\n", argv[2]);
         exit(3);
     }
+
+    parentId = getpid();
+
+    struct sigaction act;
+    act.sa_handler = sigint_handler;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    if(sigaction(SIGINT,&act,NULL) < 0){
+        fprintf(stderr,"Unable to install SIGINT handler\n");
+        exit(4);
+    }
+
 
     if(S_ISDIR(stat_buff.st_mode)){
         dr = opendir(path);
