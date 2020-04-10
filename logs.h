@@ -22,3 +22,5 @@ void logExit (int stat);
 void pipeReceivedLog(int msg);
 void pipeSentLog(int msg);
 void logEntry(int size, char* path);
+void logSentSignal(int pid, char* sign);
+void logReceivedSignal(int pid, char* sign);

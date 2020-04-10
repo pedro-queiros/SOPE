@@ -163,22 +163,44 @@ int readRegBlocks (char* filepath){
 int parentId;
 int groupId;
 
+void sigcont_handler (int sign){
+    printf("BOAS\n");
+    char signal[10];
+    strcpy(signal, "SIGCONT");
+    logReceivedSignal(getpid(), signal);
+}
+
+void sigterm_handler (int sign){
+    char signal[10];
+    strcpy(signal, "SIGTERM");
+    logReceivedSignal(getpid(), signal);
+}
+
+void sigstop_handler (int sign){
+    char signal[10];
+    strcpy(signal, "SIGSTOP");
+    logReceivedSignal(getpid(), signal);
+}
+
 void sigint_handler(int sign) {
     char input;
+    char signal[10];
     kill(-groupId,SIGSTOP);
     printf("\nDo you want to terminate the program (Y/N):\n");
     scanf("%c",&input);
     if(input == 'Y' || input == 'y'){
-        if (kill(getpid(),SIGTERM) == -1){
-            printf("Unsucess\n");
-        }
+        kill(getpid(),SIGTERM);
+        strcpy(signal, "SIGTERM");
     }
     else if(input == 'N' || input == 'n'){
         kill(-groupId,SIGCONT);
+        strcpy(signal, "SIGCONT");
     }
     else{
         printf("Invalid input\n");
+        return;
     }
+    logSentSignal(getpid(), signal);
     printf("Exiting\n");
 }
 
@@ -206,6 +228,25 @@ int readDir (char* path, int argc, char* argv[]){
             pipe(fd);
             pid = fork();
             if (pid == 0){      //processo-filho
+                struct sigaction cont_act;
+                cont_act.sa_handler = sigcont_handler;
+                sigemptyset(&cont_act.sa_mask);
+                cont_act.sa_flags = 0;
+
+                if(sigaction(SIGCONT,&cont_act,NULL) < 0){
+                    fprintf(stderr,"Unable to install SIGINT handler\n");
+                    logExit(4);
+                }
+
+                struct sigaction term_act;
+                term_act.sa_handler = sigterm_handler;
+                sigemptyset(&term_act.sa_mask);
+                term_act.sa_flags = 0;
+
+                if(sigaction(SIGTERM,&term_act,NULL) < 0){
+                    fprintf(stderr,"Unable to install SIGTERM handler\n");
+                    logExit(4);
+                }
                 createLogs(argc, argv);
                 int childSize = 0;
                 struct sigaction act;
@@ -223,7 +264,7 @@ int readDir (char* path, int argc, char* argv[]){
                 logExit(0);
             }
             else if (pid > 0){      //processo-pai
-                waitpid(-1,&status,0);
+                while (waitpid(-1,&status,0) != -1);
                 close(fd[WRITE]);
                 read(fd[READ],&aux,sizeof(int));
                 pipeReceivedLog(aux);
@@ -252,6 +293,7 @@ int readDir (char* path, int argc, char* argv[]){
 
     printTotal(size,path);
     logEntry(size, path);
+    sleep(3);
     return size;
 }
 
@@ -286,8 +328,19 @@ int main(int argc, char* argv[], char* envp[]){
     act.sa_handler = sigint_handler;
     sigemptyset(&act.sa_mask);
     act.sa_flags = 0;
+
     if(sigaction(SIGINT,&act,NULL) < 0){
         fprintf(stderr,"Unable to install SIGINT handler\n");
+        logExit(4);
+    }
+
+    struct sigaction term_act;
+    term_act.sa_handler = sigterm_handler;
+    sigemptyset(&term_act.sa_mask);
+    term_act.sa_flags = 0;
+
+    if(sigaction(SIGTERM,&term_act,NULL) < 0){
+        fprintf(stderr,"Unable to install SIGTERM handler\n");
         logExit(4);
     }
 
@@ -296,6 +349,26 @@ int main(int argc, char* argv[], char* envp[]){
     pid = fork();
 
     if(pid == 0){
+        struct sigaction cont_act;
+        cont_act.sa_handler = sigcont_handler;
+        sigemptyset(&cont_act.sa_mask);
+        cont_act.sa_flags = 0;
+
+        if(sigaction(SIGCONT,&cont_act,NULL) < 0){
+            fprintf(stderr,"Unable to install SIGINT handler\n");
+            logExit(4);
+        }
+
+        struct sigaction term_act;
+        term_act.sa_handler = sigterm_handler;
+        sigemptyset(&term_act.sa_mask);
+        term_act.sa_flags = 0;
+
+        if(sigaction(SIGTERM,&term_act,NULL) < 0){
+            fprintf(stderr,"Unable to install SIGTERM handler\n");
+            logExit(4);
+        }
+
         if (setpgid(getpid(), getpid()) == -1) {
             perror("setpgid");
             logExit(-1);
@@ -321,5 +394,4 @@ int main(int argc, char* argv[], char* envp[]){
         waitpid(-1,NULL,0);
     }
     logExit(0);
-
 }

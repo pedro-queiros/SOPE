@@ -22,7 +22,7 @@ void writeToFile(struct log *log){
         case SEND_PIPE: action = "SEND_PIPE"; break;
         case ENTRY: action = "ENTRY"; break;
     }
-    fprintf(logFile, "%.2f - %d - %-10s - %s\n", log->instant, log->pid, action, log->info);
+    fprintf(logFile, "%.2f - %d - %-11s - %s\n", log->instant, log->pid, action, log->info);
     setbuf(logFile,NULL);
 }
 
@@ -77,5 +77,19 @@ void logEntry(int size, char* path){
     struct log log;
     createLog(&log, ENTRY);
     sprintf(log.info,"Size: %d\tPath: %s", (int) size, path);
+    writeToFile(&log);
+}
+
+void logSentSignal(int pid, char* sign){
+    struct log log;
+    createLog(&log, SEND_SIGNAL);
+    sprintf(log.info, "Sent Signal %s to %d", sign, pid);
+    writeToFile(&log);
+}
+
+void logReceivedSignal(int pid, char* sign){
+    struct log log;
+    createLog(&log, RECV_SIGNAL);
+    sprintf(log.info, "Received Signal: %s", sign);
     writeToFile(&log);
 }
