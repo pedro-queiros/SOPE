@@ -8,7 +8,7 @@
 #include <dirent.h>
 #include <limits.h>
 #include <sys/wait.h>
-#include "args.h"
+#include "flags.h"
 #include "utils.h"
 
 #define MAX_COMMANDS 10
@@ -137,11 +137,13 @@ int readRegBlocks (char* filepath){
     else
         size = file.st_blocks/2;
 
-    if (f.blockSize) {
-        //size = file.st_blocks / 2;
-        //int size2 = file.st_size;
+    if (f.blockSize != 0) {
         int size2 = size;
-        double result = size * (1024.0 / f.blockSize);
+        double result;
+        if(f.bytes)
+            result = size/(f.blockSize*1.0);
+        else
+            result = size * (1024.0 / f.blockSize);
         size = (int) result;
         if (result - size > 0)
             size = result + 1;
@@ -164,44 +166,33 @@ int parentId;
 int groupId;
 
 void sigcont_handler (int sign){
-    printf("BOAS\n");
-    char signal[10];
-    strcpy(signal, "SIGCONT");
-    logReceivedSignal(getpid(), signal);
+    logReceivedSignal(getpid(), "SIGCONT");
 }
 
 void sigterm_handler (int sign){
-    char signal[10];
-    strcpy(signal, "SIGTERM");
-    logReceivedSignal(getpid(), signal);
-}
-
-void sigstop_handler (int sign){
-    char signal[10];
-    strcpy(signal, "SIGSTOP");
-    logReceivedSignal(getpid(), signal);
+    logReceivedSignal(getpid(), "SIGTERM");
 }
 
 void sigint_handler(int sign) {
+    logReceivedSignal(getpid(),"SIGINT");
     char input;
-    char signal[10];
     kill(-groupId,SIGSTOP);
     printf("\nDo you want to terminate the program (Y/N):\n");
     scanf("%c",&input);
     if(input == 'Y' || input == 'y'){
+        kill(-groupId,SIGTERM);
+        logSentSignal(groupId, "SIGTERM");
         kill(getpid(),SIGTERM);
-        strcpy(signal, "SIGTERM");
+        logSentSignal(getpid(), "SIGTERM");
     }
     else if(input == 'N' || input == 'n'){
         kill(-groupId,SIGCONT);
-        strcpy(signal, "SIGCONT");
+        logSentSignal(groupId, "SIGCONT");
     }
     else{
         printf("Invalid input\n");
         return;
     }
-    logSentSignal(getpid(), signal);
-    printf("Exiting\n");
 }
 
 int readDir (char* path, int argc, char* argv[]){
@@ -282,7 +273,11 @@ int readDir (char* path, int argc, char* argv[]){
 
     if (f.blockSize) {
         int size2 = size;
-        double result = size * (1024.0 / f.blockSize);
+        double result;
+        if(f.bytes)
+            result = size/(f.blockSize*1.0);
+        else
+            result = size * (1024.0 / f.blockSize);
         size = (int) result;
         if (result - size > 0)
             size = result + 1;
@@ -290,10 +285,8 @@ int readDir (char* path, int argc, char* argv[]){
         logEntry(size, path);
         return size2;
     }
-
     printTotal(size,path);
     logEntry(size, path);
-    sleep(3);
     return size;
 }
 
@@ -349,6 +342,11 @@ int main(int argc, char* argv[], char* envp[]){
     pid = fork();
 
     if(pid == 0){
+        if (setpgid(getpid(), getpid()) == -1) {
+            perror("setpgid");
+            logExit(-1);
+        }
+
         struct sigaction cont_act;
         cont_act.sa_handler = sigcont_handler;
         sigemptyset(&cont_act.sa_mask);
@@ -369,11 +367,6 @@ int main(int argc, char* argv[], char* envp[]){
             logExit(4);
         }
 
-        if (setpgid(getpid(), getpid()) == -1) {
-            perror("setpgid");
-            logExit(-1);
-        }
-        //groupId = getpgrp();
         if(S_ISDIR(stat_buff.st_mode)){
             dr = opendir(path);
             if(dr){
@@ -387,11 +380,11 @@ int main(int argc, char* argv[], char* envp[]){
             printToConsole(size, path);
             logEntry(size, path);
         }
-        //logExit(0);
+        logExit(0);
     }
     else if(pid > 0){
         groupId = pid;
-        waitpid(-1,NULL,0);
+        while(waitpid(-1,NULL,0) != -1);
     }
     logExit(0);
 }
