@@ -35,7 +35,7 @@ void * serverFunction(void * info){
         sprintf(infoToClient,"[%d, %d, %ld, %d, %d]",i, getpid(), pthread_self(),-1,-1);
     }
     toiletId++;
-    usleep(dur*1000);
+    usleep(dur);
     write(fd,&infoToClient,100);
     close(fd);
     return NULL;
@@ -61,7 +61,7 @@ int main(int argc, char* argv[], char* envp[]){
     strcpy(fifo,argv[3]);
 
     if(mkfifo(fifo,0666) < 0){
-        perror("Creating Fifo");
+        perror("Error creating Fifo");
     }
 
     if((fd = open(fifo,O_RDONLY | O_NONBLOCK)) < 0){
@@ -72,7 +72,8 @@ int main(int argc, char* argv[], char* envp[]){
     }
 
     while(getElapsedTime() < workingTime){
-        if(read(fd,&info,100) > 0){
+        if((read(fd,&info,100) > 0) && info[0] == '['){
+            printf("Recebi o pedido de cagamento: %s\n", info);
             pthread_create(&thread,NULL,serverFunction,(void *)&info);
             pthread_join(thread,NULL);
         }

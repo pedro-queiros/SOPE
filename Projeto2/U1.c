@@ -7,20 +7,23 @@
 #include "timer.h"
 
 int id = 1;
+int opened = 1;
 
 void *thread_handler(void *fifo){
     char message[256];
     char msg[256];
-    int duration = rand() % 25 + 1;
-    sprintf(msg,"[ %d, %d, %ld, %d, -1]",id,(int)getpid(),(long)pthread_self(),duration);
+    long int dur = rand() % 7000 + 1;
+    sprintf(msg,"[ %d, %d, %ld, %ld, -1]",id,(int)getpid(),(long)pthread_self(),dur);
 
     char *fifo_name = fifo;
     int fd = open(fifo_name, O_WRONLY);
     if (fd == -1){
         printf("Closed Bathroom\n");
+        opened = 0;
         return NULL;
     }
     write(fd, &msg, 256);
+    printf("Tenho que ir cagar: %s\n", msg);
     close(fd);
 
     char fifo_priv[256] = "/tmp/", buff[256];
@@ -37,10 +40,11 @@ void *thread_handler(void *fifo){
     }
     char answer[256];
     read(fd2, &answer, 256);
+    printf("Resposta: %s\n", answer);
     close(fd2);
     unlink(fifo_priv);
 
-    sprintf(message,"[%d, %ld, %d]", (int)getpid(), (long)pthread_self(), duration);
+    sprintf(message,"[%d, %ld, %ld]", (int)getpid(), (long)pthread_self(), dur);
     pthread_exit(message);
     return NULL;
 }
@@ -59,7 +63,7 @@ int main(int argc, char* argv[], char* envp[]){
     char fifo[256];
     void* status;
     strcat(fifo, argv[3]);
-    while(getElapsedTime() <= workingTime){
+    while(getElapsedTime() <= workingTime && opened){
         pthread_create(&threads[id],NULL,thread_handler,&fifo);
         pthread_join(threads[id],&status);
         usleep(2000*1000);
