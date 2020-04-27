@@ -24,7 +24,7 @@ void *thread_handler(void *fifo){
         return NULL;
     }
     write(fd, &msg, 256);
-    printf("Tenho que ir cagar: %s\n", msg);
+    printf("Enviei pedido: %s\n", msg);
     close(fd);
 
     char fifo_priv[256] = "/tmp/", pidInString[50], tidInString[50];
@@ -37,16 +37,19 @@ void *thread_handler(void *fifo){
     if(mkfifo(fifo_priv, 0660) < 0){
         perror("Error Creating Private Fifo");
     }
+
     int fd2;
-    if((fd2= open(fifo_priv, 0660)) < 0){
+
+    if((fd2 = open(fifo_priv,O_RDONLY)) < 0){
         perror("Error Opening File");
     }
     char answer[256];
+
     read(fd2, &answer, 256);
     printf("Resposta: %s\n", answer);
     close(fd2);
     if(unlink(fifo_priv) < 0){
-        perror("Error deleting Fifo");
+        perror("Error Deleting Fifo");
     }
 
     sprintf(message,"[%d, %ld, %ld]", (int)getpid(), (long)pthread_self(), dur);

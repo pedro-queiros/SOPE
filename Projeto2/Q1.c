@@ -24,18 +24,19 @@ void * serverFunction(void * info){
     sprintf(tidInString,"%ld",tid);
     strcat(fifo,tidInString);
 
-    while((fd = open(fifo, O_WRONLY | O_NONBLOCK)) < 0){
+    while((fd = open(fifo, O_WRONLY)) < 0){
+        printf("Client gave up\n");
         usleep(1000);
     }
 
     if(getElapsedTime() + dur*0.001 < workingTime){
         sprintf(infoToClient,"[%d, %d, %ld, %d, %d]",i, getpid(), pthread_self(),dur,toiletId);
+        usleep(dur);
     }
     else{
         sprintf(infoToClient,"[%d, %d, %ld, %d, %d]",i, getpid(), pthread_self(),-1,-1);
     }
     toiletId++;
-    usleep(dur);
     write(fd,&infoToClient,100);
     close(fd);
     return NULL;
@@ -73,7 +74,7 @@ int main(int argc, char* argv[], char* envp[]){
 
     while(getElapsedTime() < workingTime){
         if((read(fd,&info,100) > 0) && info[0] == '['){
-            printf("Recebi o pedido de cagamento: %s\n", info);
+            printf("Recebi o pedido: %s\n", info);
             pthread_create(&thread,NULL,serverFunction,(void *)&info);
             pthread_join(thread,NULL);
         }
