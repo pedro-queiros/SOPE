@@ -12,31 +12,38 @@ int opened = true;
 
 void *thread_handler(void *fifo){
     //char message[256];
-    char msg[256];
+    char msg[1024] = {0};
+    srand(time(NULL));
     long int dur = rand() % 7000 + 1;
     sprintf(msg,"[ %d, %d, %ld, %ld, -1]",id,(int)getpid(),(long)pthread_self(),dur);
 
-    //char *fifo_name = fifo;
-    int fd;
-    if((fd = open(fifo, O_WRONLY)) < 0){
-        printf("Bathroom Closed\n");
-        opened = false;
-        return NULL;
-    }
-    write(fd, &msg, 256);
-    printf("Enviei pedido: %s\n", msg);
-    close(fd);
-
-    char fifo_priv[256] = "/tmp/", pidInString[50], tidInString[50];
+    char fifo_priv[1024] = "/tmp/", pidInString[1024] = {0}, tidInString[1024] = {0};
     sprintf(pidInString, "%d", getpid());
     strcat(fifo_priv, pidInString);
     strcat(fifo_priv, ".");
     sprintf(tidInString, "%ld", pthread_self());
     strcat(fifo_priv, tidInString);
 
-
     if(mkfifo(fifo_priv, 0660) < 0){
         perror("Error Creating Private Fifo");
+    }
+
+    char *fifo_name = (char *)fifo;
+    int fd;
+    if((fd = open(fifo_name, O_WRONLY)) < 0){
+        printf("Bathroom Closed\n");
+        opened = false;
+        return NULL;
+    }
+    if(write(fd, &msg, 1024) < 0){
+        perror("Error Writing to Public Fifo\n");
+        return NULL;
+    }
+
+    printf("Enviei pedido: %s\n", msg);
+    if(close(fd) < 0){
+        perror("Error Closing Public Fifo\n");
+        return NULL;
     }
 
     int fd2;
@@ -45,12 +52,21 @@ void *thread_handler(void *fifo){
         perror("Error Opening File");
     }
 
-    char answer[256];
-    read(fd2, &answer, 256);
+    char answer[1024];
+    if(read(fd2, &answer, 1024) < 0){
+        perror("Error Reading Private Fifo\n");
+        return NULL;
+    }
+
     printf("Resposta: %s\n", answer);
-    close(fd2);
+    if(close(fd2) < 0){
+        perror("Error Closing Private Fifo\n");
+        return NULL;
+    }
+
     if(unlink(fifo_priv) < 0){
         perror("Error Deleting Fifo");
+        return NULL;
     }
 
     //sprintf(message,"[%d, %ld, %ld]", (int)getpid(), (long)pthread_self(), dur);
@@ -68,15 +84,21 @@ int main(int argc, char* argv[], char* envp[]){
     double workingTime;
     sscanf(argv[2], "%lf", &workingTime);
 
-    pthread_t threads[256];
-    char fifo[256];
+    //pthread_t threads[512];
+    pthread_t thread;
+    char fifo[1024] = {0};
     //void* status;
     strcat(fifo, argv[3]);
     while(getElapsedTime() <= workingTime && opened){
-        pthread_create(&threads[id],NULL,thread_handler,&fifo);
-        pthread_detach(threads[id]);
-        usleep(2000*1000);
-        //printf("%s\n", (char *) status);
+        if(pthread_create(&thread,NULL,thread_handler,&fifo) != 0){
+            perror("Error Creating Thread\n");
+            break;
+        }
+        if(pthread_detach(thread) != 0){
+            perror("Error Detaching Thread\n");
+            break;
+        }
+        usleep(50*1000);
         id++;
 
         double time = getElapsedTime();

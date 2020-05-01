@@ -14,7 +14,7 @@ int toiletId = 1;
 
 void * serverFunction(void * info){
     int fd;
-    char fifo[256] = "/tmp/", pidInString[50], tidInString[50], infoToClient[50];
+    char fifo[1024] = "/tmp/", pidInString[1024] = {0}, tidInString[1024] = {0}, infoToClient[1024] = {0};
     int i, dur, pid;
     long int tid;
     sscanf((char*)info,"[ %d, %d, %ld, %d, -1]",&i,&pid,&tid,&dur);
@@ -27,6 +27,7 @@ void * serverFunction(void * info){
 
     if((fd = open(fifo, O_WRONLY)) < 0){
         printf("Client gave up\n");
+        return NULL;
     }
 
     if(getElapsedTime() + dur*0.001 < workingTime){
@@ -36,9 +37,15 @@ void * serverFunction(void * info){
         sprintf(infoToClient,"[%d, %d, %ld, %d, %d]",i, getpid(), pthread_self(),-1,-1);
     }
     toiletId++;
-    write(fd,&infoToClient,256);
+    if(write(fd,&infoToClient,1024) < 0){
+        perror("Error Writing to Private Fifo\n");
+        return NULL;
+    }
     usleep(dur*1000);
-    close(fd);
+    if(close(fd) < 0){
+        perror("Error Closing Private Fifo\n");
+        return NULL;
+    }
     return NULL;
 }
 
@@ -53,8 +60,8 @@ int main(int argc, char* argv[], char* envp[]){
     startTime();
 
     int fd;
-    char fifo[256];
-    char info[256];
+    char fifo[1024] = {0};
+    char info[1024] = {0};
     pthread_t thread;
     sscanf(argv[2],"%d",&workingTime);
 
@@ -73,10 +80,16 @@ int main(int argc, char* argv[], char* envp[]){
     }
 
     while(getElapsedTime() < workingTime){
-        if(read(fd,info,256) > 0 && info[0] == '['){
+        if(read(fd,info,1024) > 0 && info[0] == '['){
             printf("Recebi o pedido: %s\n", info);
-            pthread_create(&thread,NULL,serverFunction,(void *)&info);
-            pthread_detach(thread);
+            if(pthread_create(&thread,NULL,serverFunction,(void *)&info) != 0){
+                perror("Error Creating Thread\n");
+                break;
+            }
+            if(pthread_detach(thread) != 0){
+                perror("Error Detaching Thread\n");
+                break;
+            }
         }
     }
 
