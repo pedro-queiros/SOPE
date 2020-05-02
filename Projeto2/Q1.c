@@ -13,7 +13,7 @@ int toiletId = 1;
 int opened = 1;
 
 void * serverFunction(void * info){
-    int fd, dur, id, pid;
+    int fd, dur, id, pid, clientIn = 0;
     long int tid;
     char fifo[MAX_LEN] = "/tmp/", pidInString[MAX_LEN] = {0}, tidInString[MAX_LEN] = {0}, infoToClient[MAX_LEN] = {0};
     sscanf((char*)info,"[ %d, %d, %ld, %d, -1]",&id,&pid,&tid,&dur);
@@ -30,26 +30,35 @@ void * serverFunction(void * info){
         return NULL;
     }
 
-    if(getElapsedTime() + dur*0.001 < workingTime){
-        sprintf(infoToClient,"[%d, %d, %ld, %d, %d]",id, getpid(), pthread_self(),dur,toiletId);
-        printToConsole(id, getpid(), pthread_self(), dur, -1, "ENTER");
+    if (opened) {
+        if (getElapsedTime() + dur * 0.001 < workingTime) {
+            clientIn = 1;
+            sprintf(infoToClient, "[%d, %d, %ld, %d, %d]", id, getpid(), pthread_self(), dur, toiletId);
+            printToConsole(id, getpid(), pthread_self(), dur, -1, "ENTER");
+        } else {
+            sprintf(infoToClient, "[%d, %d, %ld, %d, %d]", id, getpid(), pthread_self(), -1, -1);
+            //printToConsole(id, getpid(), pthread_self(), dur, -1, "2LATE");
+        }
+        toiletId++;
     }
     else{
-        sprintf(infoToClient,"[%d, %d, %ld, %d, %d]",id, getpid(), pthread_self(),-1,-1);
         printToConsole(id, getpid(), pthread_self(), dur, -1, "2LATE");
-        opened = 0;
     }
 
-    toiletId++;
     if(write(fd,&infoToClient,MAX_LEN) < 0){
         perror("Error Writing to Private Fifo\n");
         return NULL;
     }
-    usleep(dur*1000);
-    printToConsole(id, getpid(), pthread_self(), dur, -1, "TIMUP");
+
+    if (clientIn){
+        usleep(dur*1000);
+        printToConsole(id, getpid(), pthread_self(), dur, -1, "TIMUP");
+    }
+
     if(close(fd) < 0){
         perror("Error Closing Private Fifo\n");
     }
+
     return NULL;
 }
 
@@ -97,6 +106,8 @@ int main(int argc, char* argv[], char* envp[]){
             }
         }
     }
+
+    opened = 0;
 
     if(close(fd) < 0){
         perror("Error closing file");

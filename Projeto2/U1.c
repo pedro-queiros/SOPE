@@ -24,7 +24,9 @@ void *thread_handler(void *fifo){
     strcat(fifo_priv, tidInString);
 
     if(mkfifo(fifo_priv, 0660) < 0){
+        printToConsole(id,getpid(),pthread_self(),dur,-1,"FAILD");
         perror("Error Creating Private Fifo");
+        return NULL;
     }
 
     char *fifo_name = (char *)fifo;
@@ -37,6 +39,7 @@ void *thread_handler(void *fifo){
     printToConsole(id,getpid(),pthread_self(),dur,-1,"IWANT");
 
     if(write(fd, &msg, MAX_LEN) < 0){
+        printToConsole(id,getpid(),pthread_self(),dur,-1,"FAILD");
         perror("Error Writing to Public Fifo\n");
         return NULL;
     }
