@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <semaphore.h>
+#include "queue.h"
 #include "logs.h"
 
 int workingTime = 0;
@@ -16,6 +17,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 int threadLimit = 0, placeLimit = 0;
 sem_t threadSem;
 sem_t placesSem;
+queue q;
 
 void * serverFunction(void * info){
     int fd, dur, id, pid, clientIn = 0;
@@ -161,8 +163,12 @@ int main(int argc, char* argv[], char* envp[]){
     if(threadLimit)
         sem_init(&threadSem,0,nThreads);
 
-    if(placeLimit)
+    if(placeLimit){
         sem_init(&placesSem,0,nPlaces);
+        q = createQueue(nPlaces);
+        createPlaces(&q);
+    }
+
 
     while(getElapsedTime() <= workingTime){
         if(read(fd,info,MAX_LEN) > 0 && info[0] == '['){
