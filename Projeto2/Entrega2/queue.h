@@ -13,7 +13,7 @@ queue createQueue(int maxCapacity){
     q.placesAvailable = 0;
     q.array = (int*) malloc(maxCapacity*sizeof(int));
     return q;
-};
+}
 
 int isFull(queue *q){
     return q->placesAvailable == q->maxCapacity;
@@ -41,7 +41,7 @@ void releasePlace(queue *q,int placeId){
 }
 
 void createPlaces(queue *q){
-    for (int i = 1; i < q->maxCapacity+1; i++) {
+    for (int i = 1; i <= q->maxCapacity; i++) {
         releasePlace(q,i);
     }
 }
