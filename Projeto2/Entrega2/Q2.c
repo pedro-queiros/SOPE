@@ -106,7 +106,7 @@ void * clearFifo(void *info){
 
     sprintf(fifo_priv, "/tmp/%d.%ld", pid, tid);
     if((fd = open(fifo_priv,O_WRONLY)) < 0){
-        fprintf(stderr, "Cannot open %s for WRITING!\n", fifo_priv);
+        fprintf(stderr, "Cannot open %s for Writing!\n", fifo_priv);
         printToConsole(id, getpid(), pthread_self(), dur, -1, "GAVUP");
         if(threadLimit)
             sem_post(&threadSem);

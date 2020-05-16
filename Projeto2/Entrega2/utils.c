@@ -53,3 +53,14 @@ void checkClientArgs(int argc, char* argv[],int * workingTime, char * fifoName){
         }
     }
 }
+
+int checkIfOpen(char * fifoName){
+    int fd;
+    if((fd = open(fifoName, O_WRONLY)) < 0){
+        return 1;
+    }
+    if(close(fd) < 0){
+        fprintf(stderr, "Error Closing Fifo\n");
+    }
+    return 0;
+}

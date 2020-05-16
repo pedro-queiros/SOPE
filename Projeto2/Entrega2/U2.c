@@ -34,7 +34,12 @@ void *thread_handler(void *arg){
     long int dur = rand() % 900 + 300;
 
     sprintf(msg,"[ %d, %d, %ld, %ld, -1]",clientId,(int)getpid(),(long)pthread_self(),dur);
-    
+    if(checkIfOpen(fifo_name)){
+        printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
+        opened = false;
+        fprintf(stderr, "Service is closed !\n");
+    }
+
     printToConsole(clientId,getpid(),pthread_self(),dur,-1,"IWANT");	
     if(write(fd, &msg, MAX_LEN) < 0){
         printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
@@ -120,7 +125,7 @@ int main(int argc, char* argv[], char* envp[]){
         if(pthread_create(&thread,NULL,thread_handler,NULL) != 0){
             perror("Error Creating Thread\n");
         }
-        usleep(5*1000);
+        usleep(10*1000);
 	    id++;
     }
 
