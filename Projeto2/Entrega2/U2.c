@@ -65,9 +65,9 @@ void *thread_handler(void *arg){
         perror("Error Reading Private Fifo\n");
         if(close(fd2) < 0){
             perror("Error Closing Private Fifo\n");
-            if(unlink(fifo_priv) < 0){
-                perror("Error Deleting Fifo");
-            }
+        }
+        if(unlink(fifo_priv) < 0){
+            perror("Error Deleting Fifo");
         }
         return NULL;
     }
