@@ -13,14 +13,16 @@ int id = 1;
 int fd;
 int opened = true;
 char fifo_name[MAX_LEN] = {0};
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+//pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void *thread_handler(void *arg){
     if(pthread_detach(pthread_self()) != 0){
         perror("Error Detaching Thread\n");
         return NULL;
     }
-
+ 
+    int clientId = id;	
+ 
     char fifo_priv[MAX_LEN] = {0};
     sprintf(fifo_priv, "/tmp/%d.%ld", getpid(), pthread_self());
 
@@ -30,15 +32,14 @@ void *thread_handler(void *arg){
         return NULL;
     }
     char msg[MAX_LEN] = {0};
-    long int dur = rand() % 500 + 1;
+    long int dur = rand() % 900 + 300;
 
-    pthread_mutex_lock(&mutex);
-    int clientId = id;
-    id++;
-    pthread_mutex_unlock(&mutex);
+    //pthread_mutex_lock(&mutex);
+    //pthread_mutex_unlock(&mutex);
 
     sprintf(msg,"[ %d, %d, %ld, %ld, -1]",clientId,(int)getpid(),(long)pthread_self(),dur);
-
+    
+    printToConsole(clientId,getpid(),pthread_self(),dur,-1,"IWANT");	
     if(write(fd, &msg, MAX_LEN) < 0){
         printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
         perror("Error Writing to Public Fifo\n");
@@ -47,7 +48,6 @@ void *thread_handler(void *arg){
         opened = false;
         return NULL;
     }
-    printToConsole(clientId,getpid(),pthread_self(),dur,-1,"IWANT");
 
 
     int fd2;
@@ -125,6 +125,7 @@ int main(int argc, char* argv[], char* envp[]){
             perror("Error Creating Thread\n");
         }
         usleep(5*1000);
+	id++;
     }
 
     if(close(fd) < 0){
