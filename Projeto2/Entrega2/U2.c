@@ -13,7 +13,6 @@ int id = 1;
 int fd;
 int opened = true;
 char fifo_name[MAX_LEN] = {0};
-//pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void *thread_handler(void *arg){
     if(pthread_detach(pthread_self()) != 0){
@@ -33,9 +32,6 @@ void *thread_handler(void *arg){
     }
     char msg[MAX_LEN] = {0};
     long int dur = rand() % 900 + 300;
-
-    //pthread_mutex_lock(&mutex);
-    //pthread_mutex_unlock(&mutex);
 
     sprintf(msg,"[ %d, %d, %ld, %ld, -1]",clientId,(int)getpid(),(long)pthread_self(),dur);
     
