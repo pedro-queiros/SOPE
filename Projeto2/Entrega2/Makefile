@@ -1,22 +1,23 @@
 CC = gcc
-CFLAGS = -Wall -pthread
-DEPS = logs.h timer.h
-OBJ = logs.o timer.o
-TARGETS = U1 Q1
+CFLAGS = -Wall -Wextra -Werror -pedantic -Wno-unused-parameter -pthread -lpthread
+UOBJ = U2.o
+QOBJ = Q2.o
+COBJ = timer.o utils.o logs.o 
+TARGETS = U2 Q2
 
-all: U1 Q1
+all: U2 Q2
 
-%.o: %.c $(DEPS)
-	@$(CC) $(CFLAGS) -c -o $@ $<
-	@echo $@
+%.o: %.c 
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-U1: $(OBJ)
-	@$(CC) $(CFLAGS) -o $@ $@.c $(OBJ) -lm
-	@echo $@
+U2: $(UOBJ) $(COBJ)
+	@$(CC) $(CFLAGS) $(COBJ) $(UOBJ) -o $@
+	
 
-Q1: $(OBJ)
-	@$(CC) $(CFLAGS) -o $@ $@.c $(OBJ) -lm
-	@echo $@
+Q2: $(QOBJ) $(COBJ)
+	@$(CC) $(CFLAGS) $(COBJ) $(QOBJ) -o $@
+
+.PHONY : clean
 
 clean:
-	@rm *.o $(TARGETS)
+	rm $(UOBJ) $(QOBJ) $(COBJ) $(TARGETS)

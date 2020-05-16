@@ -9,6 +9,7 @@
 #include <semaphore.h>
 #include "queue.h"
 #include "logs.h"
+#include "utils.h"
 
 int workingTime = 0;
 int toiletId = 1;
@@ -47,39 +48,20 @@ void * serverFunction(void * info){
         pthread_mutex_unlock(&mutex);
     }
 
-
-    /*int tries = 0;
-    while ((fd=open(fifo_priv,O_WRONLY|O_NONBLOCK)) < 0 && tries < 5) {
-        fprintf(stderr, "Cant open private fifo %s\n",fifo_priv);
-        usleep(200);
-        tries++;
-    }
-
-    if (tries == 5) {
-        //writeRegister(i, pid, tid, duration, -1, GAVEUP);
-        if (threadLimit) sem_post(&threadSem);
-        if (placeLimit) {
-            pthread_mutex_lock(&mutex);
-            releasePlace(&q,place);
-            pthread_mutex_unlock(&mutex);
-            sem_post(&placesSem);
-        }
-        return NULL;
-        //pthread_exit(NULL);
-    }*/
-    if((fd = open(fifo_priv, O_WRONLY)) < 0){   //thread bloqueia aqui
+    if((fd = open(fifo_priv, O_WRONLY)) < 0){
         printToConsole(id, getpid(), pthread_self(), dur, -1, "GAVUP");
         if(threadLimit)
             sem_post(&threadSem);
         return NULL;
     }
     sprintf(infoToClient, "[%d, %d, %ld, %d, %d]", id, getpid(), pthread_self(), dur, place);
-    printToConsole(id, getpid(), pthread_self(), dur, -1, "ENTER");
+    printToConsole(id, getpid(), pthread_self(), dur, place, "ENTER");
 
 
     if(write(fd,&infoToClient,MAX_LEN) < 0){
         perror("Error Writing to Private Fifo\n");
-        if(close(fd)<0) fprintf(stderr, "Error closing private fifo of request %d\n",id);
+        if(close(fd)<0) fprintf(stderr, "Error closing private fifo of the id: %d\n",id);
+        printToConsole(id, getpid(), pthread_self(), dur, -1, "GAVUP");
         if(threadLimit)
             sem_post(&threadSem);
         if(placeLimit){
@@ -89,16 +71,14 @@ void * serverFunction(void * info){
             sem_post(&placesSem);
         }
         return NULL;
-        //pthread_exit(NULL);
     }
     usleep(dur*1000);
-    printToConsole(id, getpid(), pthread_self(), dur, -1, "TIMUP");
+    printToConsole(id, getpid(), pthread_self(), dur, place, "TIMUP");
 
 
     if(close(fd) < 0){
         perror("Error Closing Private Fifo\n");
         return NULL;
-        //pthread_exit(NULL);
     }
 
     if(threadLimit){
@@ -112,39 +92,8 @@ void * serverFunction(void * info){
         sem_post(&placesSem);
     }
     return NULL;
-    //pthread_exit(NULL);
 }
 
-void checkArgs(int argc, char* argv[],int *nSecs, char* fifoName, int *nPlaces, int *nThreads){
-    if(argc < 4 || argc > 8){
-        printf("Usage: Qn <-t nsecs> [-l nplaces] [-n nthreads] fifoname\n");
-        exit(1);
-    }
-    for (int i = 1; i < argc; i++){
-        char * aux = argv[i];
-        if(aux[0] == '-'){
-            if(strcmp(aux,"-t") == 0){
-                *nSecs = atoi(argv[i+1]);
-                i++;
-            }
-            else if(strcmp(aux,"-l") == 0){
-                *nPlaces = atoi(argv[i+1]);
-                i++;
-            }
-            else if(strcmp(aux,"-n") == 0){
-                *nThreads = atoi(argv[i+1]);
-                i++;
-            }
-            else{
-                printf("Usage: Qn <-t nsecs> [-l nplaces] [-n nthreads] fifoname\n");
-                exit(1);
-            }
-        }
-        else{
-            strcpy(fifoName,aux);
-        }
-    }
-}
 
 void * clearFifo(void *info){
     pthread_detach(pthread_self());
@@ -159,19 +108,19 @@ void * clearFifo(void *info){
     sprintf(fifo_priv, "/tmp/%d.%ld", pid, tid);
     if((fd = open(fifo_priv,O_WRONLY)) < 0){
         fprintf(stderr, "Cannot open %s for WRITING!\n", fifo_priv);
+        printToConsole(id, getpid(), pthread_self(), dur, -1, "GAVUP");
         if(threadLimit)
             sem_post(&threadSem);
         return NULL;
-        //pthread_exit(NULL);
     }
     sprintf(infoToClient, "[%d, %d, %ld, %d, %d]", id, getpid(), pthread_self(), -1, -1);
     if(write(fd,infoToClient,MAX_LEN) < 0){
         fprintf(stderr, "Cannot write to client %d FIFO!", id);
+        printToConsole(id, getpid(), pthread_self(), dur, -1, "GAVUP");
         close(fd);
         if(threadLimit)
             sem_post(&threadSem);
         return NULL;
-        //pthread_exit(NULL);
     }
 
     if(close(fd) < 0){
@@ -182,7 +131,6 @@ void * clearFifo(void *info){
 
     if(threadLimit)
         sem_post(&threadSem);
-    //pthread_exit(NULL);
     return NULL;
 }
 
@@ -195,7 +143,12 @@ int main(int argc, char* argv[], char* envp[]){
     char info[MAX_LEN] = {0};
 
 
-    checkArgs(argc,argv,&workingTime,fifo,&nPlaces,&nThreads);
+    checkServerArgs(argc,argv,&workingTime,fifo,&nPlaces,&nThreads);
+
+    if(workingTime <= 0){
+        fprintf(stderr, "Time needs to be greater than zero\n");
+        exit(3);
+    }
 
     if(nPlaces > 0){
         placeLimit = 1;
@@ -207,7 +160,7 @@ int main(int argc, char* argv[], char* envp[]){
 
     if(mkfifo(fifo,0660) < 0){
         perror("Error creating Fifo");
-        exit(2);
+        exit(4);
     }
 
     if((fd = open(fifo,O_RDONLY | O_NONBLOCK)) < 0){
@@ -215,7 +168,7 @@ int main(int argc, char* argv[], char* envp[]){
         if(unlink(fifo) < 0){
             perror("Error deleting Fifo");
         }
-        exit(3);
+        exit(5);
     }
 
     if(threadLimit)
@@ -243,10 +196,6 @@ int main(int argc, char* argv[], char* envp[]){
         }
     }
     opened = 0;
-    /*FILE * f = fdopen(fd,"r");
-    char line[MAX_LEN];
-    fgets(line,MAX_LEN,f);
-    printf("Conteudo: %s\n",line);*/
 
     if(unlink(fifo) < 0){
         perror("Error deleting Fifo");
@@ -269,8 +218,6 @@ int main(int argc, char* argv[], char* envp[]){
     if(close(fd) < 0){
         perror("Error closing file");
     }
-
-
 
     pthread_exit(0);
 }

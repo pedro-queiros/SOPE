@@ -7,6 +7,7 @@
 #include <errno.h>
 #include "timer.h"
 #include "logs.h"
+#include "utils.h"
 
 int id = 1;
 int fd;
@@ -17,11 +18,8 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 void *thread_handler(void *arg){
     if(pthread_detach(pthread_self()) != 0){
         perror("Error Detaching Thread\n");
-        //pthread_exit(NULL);
         return NULL;
     }
-
-    //int fd;
 
     char fifo_priv[MAX_LEN] = {0};
     sprintf(fifo_priv, "/tmp/%d.%ld", getpid(), pthread_self());
@@ -30,7 +28,6 @@ void *thread_handler(void *arg){
         printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
         perror("Error Creating Private Fifo");
         return NULL;
-        //pthread_exit(NULL);
     }
     char msg[MAX_LEN] = {0};
     long int dur = rand() % 500 + 1;
@@ -43,13 +40,12 @@ void *thread_handler(void *arg){
     sprintf(msg,"[ %d, %d, %ld, %ld, -1]",clientId,(int)getpid(),(long)pthread_self(),dur);
 
     if(write(fd, &msg, MAX_LEN) < 0){
-        printToConsole(id,getpid(),pthread_self(),dur,-1,"FAILD");
+        printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
         perror("Error Writing to Public Fifo\n");
         if(close(fd)<0) fprintf(stderr, "Cannot close public FIFO");
         if (unlink(fifo_priv) < 0) fprintf(stderr, "Cannot delete private FIFO");
         opened = false;
         return NULL;
-        //pthread_exit(NULL);
     }
     printToConsole(clientId,getpid(),pthread_self(),dur,-1,"IWANT");
 
@@ -57,40 +53,27 @@ void *thread_handler(void *arg){
     int fd2;
 
     if ((fd2 = open(fifo_priv,O_RDONLY)) < 0){
-        printToConsole(id,getpid(),pthread_self(),dur,-1,"FAILD");
-        //unlink(fifo_priv);
+        printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
         perror("Error Opening File");
+        if(unlink(fifo_priv) < 0){
+            perror("Error Deleting Fifo");
+        }
         return NULL;
-        //pthread_exit(NULL);
     }
 
     char answer[MAX_LEN];
 
-    /*int tries = 0;
-    while(read(fd2,answer,MAX_LEN) <= 0 && tries < 5){
-        fprintf(stderr, "Cant read. Try again");
-        usleep(200);
-        tries++;
-    }
-    if (tries > 0 && tries < 5) {
-        fprintf(stderr,"READ!");
-    }
-
-    if(tries == 5){
-        fprintf(stderr, "Can't read from private FIFO\n");
-        //writeRegister(mynum,getpid(),pthread_self(),duration,-1,FAILED);
-        if (close(fd2) < 0)
-            fprintf(stderr, "Error closing FIFO %s file descriptor.\n", fifo_priv);
-        if (unlink(fifo_priv)<0)
-            fprintf(stderr, "Error when destroying FIFO '%s'\n",fifo_priv);
-        return NULL;
-        //pthread_exit(NULL);
-    }*/
 
     if(read(fd2, &answer, MAX_LEN) <= 0){
-        printToConsole(id,getpid(),pthread_self(),dur,-1,"FAILD");
+        printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
         perror("Error Reading Private Fifo\n");
-        pthread_exit(NULL);
+        if(close(fd2) < 0){
+            perror("Error Closing Private Fifo\n");
+            if(unlink(fifo_priv) < 0){
+                perror("Error Deleting Fifo");
+            }
+        }
+        return NULL;
     }
 
     int num1, pid, place;
@@ -105,60 +88,35 @@ void *thread_handler(void *arg){
 
     if(close(fd2) < 0){
         perror("Error Closing Private Fifo\n");
+        if(unlink(fifo_priv) < 0){
+            perror("Error Deleting Fifo");
+        }
         return NULL;
-        //pthread_exit(NULL);
     }
 
     if(unlink(fifo_priv) < 0){
         perror("Error Deleting Fifo");
     }
     return NULL;
-    //pthread_exit(NULL);
-}
-
-void checkArgs(int argc, char* argv[],int * workingTime, char * fifoName){
-    if(argc != 4){
-        fprintf(stderr, "Usage: Un <-t nsecs> fifoname\n");
-        exit(1);
-    }
-    for (int i = 1; i < argc ; i++) {
-        char * aux = argv[i];
-        if(aux[0] == '-'){
-            if(strcmp(aux,"-t") == 0){
-                *workingTime = atoi(argv[i+1]);
-                i++;
-            }
-            else{
-                fprintf(stderr, "Usage: Un <-t nsecs> fifoname\n");
-                exit(1);
-            }
-        }
-        else{
-            strcpy(fifoName,aux);
-        }
-    }
 }
 
 
 int main(int argc, char* argv[], char* envp[]){
-    if (argc != 4){
-        fprintf(stderr, "Usage: Un <-t nsecs> fifoname\n");
-    }
-
-    startTime();
 
     int workingTime;
-    checkArgs(argc,argv,&workingTime,fifo_name);
-    //sscanf(argv[2], "%d", &workingTime);
+    checkClientArgs(argc,argv,&workingTime,fifo_name);
 
-    //strcat(fifo_name, argv[3]);
+    if(workingTime <= 0){
+        fprintf(stderr, "Time needs to be greater than zero\n");
+        exit(3);
+    }
+    startTime();
 
-    if((fd = open(fifo_name, O_WRONLY/*|O_NONBLOCK,0660*/)) < 0){
+    if((fd = open(fifo_name, O_WRONLY)) < 0){
         printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
         opened = false;
-        fprintf(stderr, "Oops !!! Service is closed !!!\n");
-        //pthread_exit(NULL);
-        //exit()
+        fprintf(stderr, "Service is closed !\n");
+        exit(4);
     }
 
     while(getElapsedTime() < workingTime && opened){
@@ -171,7 +129,6 @@ int main(int argc, char* argv[], char* envp[]){
 
     if(close(fd) < 0){
         perror("Error Closing Public Fifo\n");
-        //pthread_exit(1);
     }
 
     pthread_exit(0);
