@@ -21,7 +21,19 @@ void *thread_handler(void *arg){
         return NULL;
     }
 
+<<<<<<< HEAD
     //int fd;
+=======
+    int fd;
+
+    if((fd = open(fifo_name, O_WRONLY/*|O_NONBLOCK,0660*/)) < 0){
+        printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
+        opened = false;
+        fprintf(stderr, "Oops !!! Service is closed !!!\n");
+        //pthread_exit(NULL);
+        return NULL;
+    }
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
 
     char fifo_priv[MAX_LEN] = {0};
     sprintf(fifo_priv, "/tmp/%d.%ld", getpid(), pthread_self());
@@ -29,8 +41,13 @@ void *thread_handler(void *arg){
     if(mkfifo(fifo_priv, 0660) < 0){
         printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
         perror("Error Creating Private Fifo");
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
+=======
+        //pthread_exit(NULL);
+        return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     }
     char msg[MAX_LEN] = {0};
     long int dur = rand() % 500 + 1;
@@ -48,11 +65,24 @@ void *thread_handler(void *arg){
         if(close(fd)<0) fprintf(stderr, "Cannot close public FIFO");
         if (unlink(fifo_priv) < 0) fprintf(stderr, "Cannot delete private FIFO");
         opened = false;
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
     }
     printToConsole(clientId,getpid(),pthread_self(),dur,-1,"IWANT");
 
+=======
+        //pthread_exit(NULL);
+        return NULL;
+    }
+    printToConsole(clientId,getpid(),pthread_self(),dur,-1,"IWANT");
+
+    if(close(fd) < 0){
+        perror("Error Closing Public Fifo\n");
+        return NULL;
+        //pthread_exit(NULL);
+    }
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
 
     int fd2;
 
@@ -60,8 +90,13 @@ void *thread_handler(void *arg){
         printToConsole(id,getpid(),pthread_self(),dur,-1,"FAILD");
         //unlink(fifo_priv);
         perror("Error Opening File");
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
+=======
+        //pthread_exit(NULL);
+        return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     }
 
     char answer[MAX_LEN];
@@ -83,6 +118,7 @@ void *thread_handler(void *arg){
             fprintf(stderr, "Error closing FIFO %s file descriptor.\n", fifo_priv);
         if (unlink(fifo_priv)<0)
             fprintf(stderr, "Error when destroying FIFO '%s'\n",fifo_priv);
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
     }*/
@@ -91,6 +127,17 @@ void *thread_handler(void *arg){
         printToConsole(id,getpid(),pthread_self(),dur,-1,"FAILD");
         perror("Error Reading Private Fifo\n");
         pthread_exit(NULL);
+=======
+        //pthread_exit(NULL);
+        return NULL;
+    }*/
+
+    if(read(fd2, &answer, MAX_LEN) < 0){
+        printToConsole(id,getpid(),pthread_self(),dur,-1,"FAILD");
+        perror("Error Reading Private Fifo\n");
+        //pthread_exit(NULL);
+        return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     }
 
     int num1, pid, place;
@@ -105,13 +152,19 @@ void *thread_handler(void *arg){
 
     if(close(fd2) < 0){
         perror("Error Closing Private Fifo\n");
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
+=======
+        //pthread_exit(NULL);
+        return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     }
 
     if(unlink(fifo_priv) < 0){
         perror("Error Deleting Fifo");
     }
+<<<<<<< HEAD
     return NULL;
     //pthread_exit(NULL);
 }
@@ -137,6 +190,10 @@ void checkArgs(int argc, char* argv[],int * workingTime, char * fifoName){
             strcpy(fifoName,aux);
         }
     }
+=======
+    //pthread_exit(NULL);
+    return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
 }
 
 

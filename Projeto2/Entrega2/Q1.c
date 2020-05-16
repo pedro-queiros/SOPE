@@ -48,6 +48,10 @@ void * serverFunction(void * info){
     }
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     /*int tries = 0;
     while ((fd=open(fifo_priv,O_WRONLY|O_NONBLOCK)) < 0 && tries < 5) {
         fprintf(stderr, "Cant open private fifo %s\n",fifo_priv);
@@ -64,8 +68,13 @@ void * serverFunction(void * info){
             pthread_mutex_unlock(&mutex);
             sem_post(&placesSem);
         }
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
+=======
+        //pthread_exit(NULL);
+        return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     }*/
     if((fd = open(fifo_priv, O_WRONLY)) < 0){   //thread bloqueia aqui
         printToConsole(id, getpid(), pthread_self(), dur, -1, "GAVUP");
@@ -88,8 +97,13 @@ void * serverFunction(void * info){
             pthread_mutex_unlock(&mutex);
             sem_post(&placesSem);
         }
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
+=======
+        //pthread_exit(NULL);
+        return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     }
     usleep(dur*1000);
     printToConsole(id, getpid(), pthread_self(), dur, -1, "TIMUP");
@@ -97,8 +111,13 @@ void * serverFunction(void * info){
 
     if(close(fd) < 0){
         perror("Error Closing Private Fifo\n");
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
+=======
+        //pthread_exit(NULL);
+        return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     }
 
     if(threadLimit){
@@ -111,6 +130,10 @@ void * serverFunction(void * info){
         pthread_mutex_unlock(&mutex);
         sem_post(&placesSem);
     }
+<<<<<<< HEAD
+=======
+
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     return NULL;
     //pthread_exit(NULL);
 }
@@ -161,8 +184,13 @@ void * clearFifo(void *info){
         fprintf(stderr, "Cannot open %s for WRITING!\n", fifo_priv);
         if(threadLimit)
             sem_post(&threadSem);
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
+=======
+        //pthread_exit(NULL);
+        return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     }
     sprintf(infoToClient, "[%d, %d, %ld, %d, %d]", id, getpid(), pthread_self(), -1, -1);
     if(write(fd,infoToClient,MAX_LEN) < 0){
@@ -170,8 +198,13 @@ void * clearFifo(void *info){
         close(fd);
         if(threadLimit)
             sem_post(&threadSem);
+<<<<<<< HEAD
         return NULL;
         //pthread_exit(NULL);
+=======
+        //pthread_exit(NULL);
+        return NULL;
+>>>>>>> c5fd4a10683fe883924eaf0726d951a41dba9e44
     }
 
     if(close(fd) < 0){
@@ -269,8 +302,6 @@ int main(int argc, char* argv[], char* envp[]){
     if(close(fd) < 0){
         perror("Error closing file");
     }
-
-
 
     pthread_exit(0);
 }
