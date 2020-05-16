@@ -6,7 +6,7 @@
  - evitar conflitos entre entidades concorrentes, por via de mecanismos de sincronização.
 
 ##### Descrição Geral:
-São enviados pedidos de acesso por intermédio de um processo multithread U, relativo aos cliente, que serão lidos por um servidor, Q. O tempo de duração de cada cliente é gerado aleatoriamente, podendo tomar valores de 300 a 1199 ms. O servidor recebe esses pedidos e envia uma resposta para o cliente, permitindo-o, ou não, utlilzar o quarto de banho. O utilizador pode limitar o número de lugares no quarto de banho, assim como o número de threads a atender os pedidos
+São enviados pedidos de acesso por intermédio de um processo multithread U, relativo aos cliente, que serão lidos por um servidor, Q. O tempo de duração de cada cliente é gerado aleatoriamente, podendo tomar valores de 300 a 1199 ms. O servidor recebe esses pedidos e envia uma resposta para o cliente, permitindo-o, ou não, utilizar o quarto de banho. O utilizador pode limitar o número de lugares no quarto de banho, assim como o número de threads a atender os pedidos
 
 ##### Registo das operações:
 

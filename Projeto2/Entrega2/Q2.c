@@ -13,7 +13,6 @@
 
 int workingTime = 0;
 int toiletId = 1;
-int opened = 1;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 int threadLimit = 0, placeLimit = 0;
 sem_t threadSem;
@@ -195,7 +194,6 @@ int main(int argc, char* argv[], char* envp[]){
             }
         }
     }
-    opened = 0;
 
     if(unlink(fifo) < 0){
         perror("Error deleting Fifo");

@@ -39,7 +39,7 @@ void *thread_handler(void *arg){
     if(write(fd, &msg, MAX_LEN) < 0){
         printToConsole(id,getpid(),pthread_self(),-1,-1,"FAILD");
         perror("Error Writing to Public Fifo\n");
-        if(close(fd)<0) fprintf(stderr, "Cannot close public FIFO");
+        //if(close(fd)<0) fprintf(stderr, "Cannot close public FIFO");
         if (unlink(fifo_priv) < 0) fprintf(stderr, "Cannot delete private FIFO");
         opened = false;
         return NULL;
@@ -121,7 +121,7 @@ int main(int argc, char* argv[], char* envp[]){
             perror("Error Creating Thread\n");
         }
         usleep(5*1000);
-	id++;
+	    id++;
     }
 
     if(close(fd) < 0){
